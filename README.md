@@ -1,12 +1,26 @@
 # LINE OA for Home Assistant
 
-讓 Home Assistant 透過 **LINE OA Gateway** 發送 LINE 官方帳號通知。
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![Release](https://img.shields.io/github/v/release/xangin/line-oa-hacs)](https://github.com/xangin/line-oa-hacs/releases)
+[![Validate](https://github.com/xangin/line-oa-hacs/actions/workflows/validate.yml/badge.svg)](https://github.com/xangin/line-oa-hacs/actions/workflows/validate.yml)
+[![Tests](https://github.com/xangin/line-oa-hacs/actions/workflows/tests.yml/badge.svg)](https://github.com/xangin/line-oa-hacs/actions/workflows/tests.yml)
 
-**只需要安裝這一份 HACS 整合。** 同一個 `line_oa` 整合同時支援兩種 Gateway，使用相同的動作、實體與自動化：
+讓 Home Assistant 透過 LINE 官方帳號發送**文字、圖片與攝影機截圖**通知。
+
+本儲存庫是 **Home Assistant 整合（HACS）**，負責提供動作與狀態實體；實際登入 LINE、發送訊息的是 **LINE OA Gateway**。建議搭配 Add-on 使用：
+
+| 元件 | 儲存庫 | 用途 |
+| --- | --- | --- |
+| **LINE OA 整合**（本儲存庫） | `https://github.com/xangin/line-oa-hacs` | `line_oa.*` 動作、四個狀態實體、自動探索與安全配對 |
+| **LINE OA Add-on**（建議） | [`https://github.com/xangin/line-oa-ha-addon`](https://github.com/xangin/line-oa-ha-addon) | LINE 登入、收件者別名、發送 Gateway（Ingress 管理介面） |
+
+> **非官方 LINE 專案。** Gateway 使用 LINE 官方帳號管理後台的未公開聊天介面，並非 LINE Messaging API，也未獲 LINE 背書。LINE 服務變更或登入限制可能影響使用；請遵守 LINE 使用規範，不適合大量群發或必須保證送達的緊急通知。
+
+同一份整合同時支援兩種 Gateway，使用相同的動作、實體與自動化：
 
 | 連線方式 | Gateway 在哪裡 | 設定時要輸入 |
 | --- | --- | --- |
-| **Home Assistant Add-on** | HA 內的 LINE OA Add-on | **不用輸入**：HA 自動發現 → 你按確認 → 安全自動配對 |
+| **Home Assistant Add-on**（建議） | HA 內的 [LINE OA Add-on](https://github.com/xangin/line-oa-ha-addon) | **不用輸入**：HA 自動發現 → 按確認 → 安全自動配對 |
 | **外部 Gateway** | Ubuntu LXC / Docker / Linux | Gateway 網址 + API Key |
 
 ```
@@ -14,8 +28,6 @@
 Home Assistant ─ LINE OA ┤                                                                     ├─▶ LINE 官方帳號
                          └─ 外部模式：網址 + API Key ──────────────────▶ LINE OA Gateway（LXC）──┘
 ```
-
-本整合**只負責 Home Assistant 端**：不實作 LINE 登入或通訊協定，不需要 LINE Cookie、LINE 密碼、Session、資料庫、Node.js 或 Chromium。
 
 提供：
 
@@ -26,38 +38,84 @@ Home Assistant ─ LINE OA ┤                                                  
 
 > 本整合刻意**不**建立 `notify.line_oa`，也不會依聯絡人建立任何實體。
 
-詳細文件：
-
-- [Add-on 自動探索與配對](docs/addon-connection.md)
-- [外部 Gateway（LXC）手動連線](docs/external-connection.md)
-- [LXC 切換至 Add-on](docs/migration.md)
-- [安全性：API Key、Discovery、配對](docs/security.md)
-- [錯誤排除](docs/troubleshooting.md)
-
 ---
 
-## 版本需求
+## 需求
 
 | 項目 | 需求 |
 | --- | --- |
 | Home Assistant | **2026.9.0** 以上（已用 2026.9.0、2026.9.2、2026.10.1 測試） |
 | HACS | 2.x |
-| LINE OA Gateway | 實作 [API 契約](#gateway-api-契約) `/api/v1/*` 的版本 |
+| 使用 Add-on 時 | 有 Supervisor 的安裝（建議 **Home Assistant OS**）；Add-on 目前僅提供 **amd64（x86-64）** 映像 |
+| LINE | 可管理該官方帳號的 LINE 帳號，且官方帳號已啟用「聊天」（見 [Add-on 說明](https://github.com/xangin/line-oa-ha-addon#2-必須啟用聊天並建立對話)） |
+
+HA Container / Core（沒有 Supervisor）無法安裝 Add-on，請改用外部 Gateway。
 
 ---
 
-## 安裝方式
+## 快速安裝（搭配 Add-on，建議）
 
-### 方法一：HACS 自訂 Repository（建議）
+### 步驟 1：安裝 LINE OA Add-on
 
-1. 開啟 HACS → 右上角 ⋮ → **自訂儲存庫（Custom repositories）**。
-2. Repository 填入 `https://github.com/xangin/line-oa-hacs`，類別選 **Integration**。
-3. 在 HACS 搜尋 **LINE OA** → 下載。
-4. **重新啟動 Home Assistant**。
+[![新增 Add-on 儲存庫到 Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fxangin%2Fline-oa-ha-addon)
 
-### 方法二：手動安裝
+或手動：
 
-將 `custom_components/line_oa/` 整個資料夾複製到 HA 的 `/config/custom_components/line_oa/`，然後重新啟動 Home Assistant。
+1. **設定 → 應用程式／附加元件 → 商店**（名稱依 HA 版本而不同）→ 右上角 ⋮ → **儲存庫（Repositories）**，加入：
+
+   ```text
+   https://github.com/xangin/line-oa-ha-addon
+   ```
+
+2. 找到 **LINE OA** → **安裝** → **啟動**（建議開啟「開機啟動」）。
+3. 按 **開啟 Web UI**：用手機 LINE 掃描登入官方帳號，再到「聯絡人」為收件者設定**別名**（例如 `home`；小寫英數、底線或連字號，1–32 字元）。
+
+詳細步驟見 [Add-on 說明文件](https://github.com/xangin/line-oa-ha-addon#readme)。
+
+### 步驟 2：用 HACS 安裝本整合
+
+[![在 HACS 開啟本儲存庫](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=xangin&repository=line-oa-hacs&category=integration)
+
+或手動：
+
+1. 開啟 **HACS** → 右上角 ⋮ → **自訂儲存庫（Custom repositories）**。
+2. Repository 填入下列網址，類別選 **Integration**（整合），按「新增」：
+
+   ```text
+   https://github.com/xangin/line-oa-hacs
+   ```
+
+3. 在 HACS 搜尋 **LINE OA** → **下載**。
+4. **重新啟動 Home Assistant**（設定 → 系統 → 右上角電源 → 重新啟動）。
+
+### 步驟 3：確認自動探索並配對
+
+1. 重新啟動後，**設定 → 裝置與服務** 會出現「**已發現：LINE OA**」，點 **新增／設定**。
+2. 畫面詢問「是否將 LINE OA Add-on 連接到 Home Assistant？」→ **提交**。
+3. HA 會與 Add-on 安全配對並自動取得專用 API Key，完成後建立四個狀態實體，三個動作即可使用。
+
+全程**不需要輸入 IP、埠或 API Key**，也不會發送任何 LINE 訊息。沒有看到「已發現」時，可以手動：
+
+[![新增 LINE OA 整合](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=line_oa)
+
+→ 選 **Home Assistant Add-on**。詳見 [docs/addon-connection.md](docs/addon-connection.md)。
+
+### 步驟 4：測試
+
+在 **開發者工具 → 動作** 執行（`who` 填 Add-on 裡設定的別名）：
+
+```yaml
+action: line_oa.send_text
+data:
+  who: home
+  message: "LINE OA 測試通知"
+```
+
+---
+
+## 手動安裝（不使用 HACS）
+
+下載 [最新版本](https://github.com/xangin/line-oa-hacs/releases/latest)，把 `custom_components/line_oa/` 整個資料夾複製到 HA 的 `/config/custom_components/line_oa/`，然後重新啟動 Home Assistant。
 
 ---
 
@@ -65,12 +123,7 @@ Home Assistant ─ LINE OA ┤                                                  
 
 ### 方式 A：Home Assistant Add-on（自動配對）
 
-1. 安裝並啟動 **LINE OA Add-on**，在 Add-on 的 Web UI 完成 LINE 登入並設定聯絡人別名。
-2. **設定 → 裝置與服務** 會出現「**已發現：LINE OA**」，點「設定」。
-3. 確認「是否將 LINE OA Add-on 連接到 Home Assistant？」→ **提交**。
-4. HA 自動與 Add-on 安全配對、取得專用 API Key，建立四個狀態實體並啟用三個動作。
-
-不需要輸入 IP、埠、API Key、LINE Cookie、Bot ID 或 Chat ID。詳見 [docs/addon-connection.md](docs/addon-connection.md)。
+即上方「快速安裝」的步驟 3。不需要輸入 IP、埠、API Key、LINE Cookie、Bot ID 或 Chat ID。詳見 [docs/addon-connection.md](docs/addon-connection.md)。
 
 也可以手動：**新增整合 → LINE OA → Home Assistant Add-on**（找不到 Add-on 時會顯示安裝指引，不會假裝已找到）。
 
@@ -82,6 +135,14 @@ Home Assistant ─ LINE OA ┤                                                  
 4. 整合會依序：檢查 `GET /api/v1/health` → 以 API Key 呼叫 `GET /api/v1/status` → 檢查 API 版本 → 讀取 `instance_id` → 建立設定。
 
 舊版 LXC Gateway 沒有回報 `api_version` 時視為 v1，可直接使用，不需要先升級。詳見 [docs/external-connection.md](docs/external-connection.md)。
+
+### 詳細文件
+
+- [Add-on 自動探索與配對](docs/addon-connection.md)
+- [外部 Gateway（LXC）手動連線](docs/external-connection.md)
+- [LXC 切換至 Add-on](docs/migration.md)
+- [安全性：API Key、Discovery、配對](docs/security.md)
+- [錯誤排除](docs/troubleshooting.md)
 
 ### 兩種認證要分清楚
 

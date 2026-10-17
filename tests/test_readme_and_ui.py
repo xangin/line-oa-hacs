@@ -47,8 +47,11 @@ async def test_readme_yaml_examples_run(
     block: str,
 ) -> None:
     """Each README example passes HA's script schema and runs against the mock Gateway."""
-    config: dict[str, Any] = parse_yaml(block)
-    actions = cv.SCRIPT_SCHEMA(config["actions"])
+    config: Any = parse_yaml(block)
+    # Automation style (``actions:`` list) or Developer Tools style (one action).
+    raw_actions = config.get("actions", [config])
+    actions = cv.SCRIPT_SCHEMA(raw_actions)
+    gateway_state.aliases.append("home")  # alias used by the quick-start example
     actions = await async_validate_actions_config(hass, actions)
 
     # Environment the examples refer to.
@@ -77,7 +80,7 @@ async def test_readme_yaml_examples_run(
     line_oa_calls = [a for a in actions if a["action"].startswith("line_oa.")]
     assert len(gateway_state.requests) == len(line_oa_calls)
     for request in gateway_state.requests:
-        assert request.fields["who"] == "simon"
+        assert request.fields["who"] in {"simon", "home"}
     if "bathroom_temperature" in block:
         assert "26.5°C" in gateway_state.requests[0].fields["message"]
 

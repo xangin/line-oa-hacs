@@ -13,7 +13,7 @@
 1. **設定 → 裝置與服務 → 新增整合 → LINE OA**。
 2. 選擇「**外部 Gateway（LXC / Docker / Linux）**」。
 3. 輸入：
-   - **Gateway 網址**：例如 `http://192.168.123.141:8790`
+   - **Gateway 網址**：例如 `http://192.168.1.50:8790`
    - **API Key**：Gateway Web UI 建立的 Key
 4. 送出後檢查 `GET /api/v1/health` → `GET /api/v1/status`（帶 API Key）→ API 版本 → `instance_id`，成功即建立設定。
 
