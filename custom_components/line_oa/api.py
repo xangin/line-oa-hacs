@@ -35,6 +35,13 @@ API_STATUS = "/api/v1/status"
 API_ALIASES = "/api/v1/aliases"
 API_MESSAGES_TEXT = "/api/v1/messages/text"
 API_MESSAGES_IMAGE = "/api/v1/messages/image"
+API_PAIRING_EXCHANGE = "/api/v1/pairing/exchange"
+
+# Gateway API major version this integration speaks. Older LXC Gateways do not
+# report ``api_version`` at all; they implement version 1 and stay supported.
+SUPPORTED_API_VERSION = 1
+PAIRING_CLIENT = "homeassistant-line_oa"
+PAIRING_TIMEOUT = 15  # seconds
 
 GET_TIMEOUT = 10  # seconds
 TEXT_POST_TIMEOUT = 30  # seconds
@@ -167,6 +174,22 @@ class GatewayUnavailableError(GatewayApiError):
     """The Gateway is temporarily unable to process requests (HTTP 503)."""
 
 
+class PairingError(LineOAError):
+    """Pairing with a Gateway app failed; no credential was obtained."""
+
+
+class PairingRejectedError(PairingError):
+    """The one-time pairing token was invalid, expired or already used."""
+
+
+class PairingRateLimitedError(PairingError):
+    """Too many pairing attempts."""
+
+
+class PairingUnavailableError(PairingError):
+    """The Gateway does not offer pairing (endpoint missing or unreachable)."""
+
+
 class SendUnknownError(LineOAError):
     """The send outcome is unknown. The message may have been delivered."""
 
@@ -228,6 +251,7 @@ class GatewayStatus:
     account_name: str | None
     last_error: str | None
     updated_at: str | None
+    api_version: int | None = None
 
     @classmethod
     def from_dict(cls, data: Any) -> GatewayStatus:
@@ -240,6 +264,7 @@ class GatewayStatus:
         logged_in = data.get("line_logged_in")
         return cls(
             instance_id=instance_id.strip(),
+            api_version=parse_api_version(data.get("api_version")),
             version=_opt_str(data.get("version")),
             gateway_status=_opt_str(data.get("gateway_status")),
             line_logged_in=logged_in if isinstance(logged_in, bool) else None,
@@ -248,6 +273,39 @@ class GatewayStatus:
             last_error=_error_summary(data.get("last_error")),
             updated_at=_opt_str(data.get("updated_at")),
         )
+
+
+def parse_api_version(value: Any) -> int | None:
+    """Return the reported API version; ``None`` when not reported (legacy v1).
+
+    Malformed values are returned as ``0`` so they are treated as unsupported.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
+def api_version_supported(version: int | None) -> bool:
+    """Return True for API version 1 or a Gateway that does not report one."""
+    return version is None or version == SUPPORTED_API_VERSION
+
+
+@dataclass(frozen=True, slots=True)
+class PairingResult:
+    """Credential issued by a Gateway app during pairing."""
+
+    instance_id: str
+    api_key: str
+    api_version: int
+
+    def __repr__(self) -> str:
+        """Never include the credential in a repr."""
+        return f"PairingResult(instance_id={self.instance_id!r}, api_version={self.api_version})"
+
+
+_API_KEY_FORMAT = re.compile(r"[A-Za-z0-9_\-]{32,256}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,10 +412,10 @@ class LineOAGatewayClient:
         return self._base_url
 
     def _headers(self) -> dict[str, str]:
-        return {
-            "Authorization": f"Bearer {self._api_key}",
-            "Accept": "application/json",
-        }
+        headers = {"Accept": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
 
     async def _raw_request(
         self,
@@ -418,6 +476,52 @@ class LineOAGatewayClient:
         """Call ``GET /api/v1/health``. Any 2xx response means healthy."""
         resp = await self._get(API_HEALTH)
         return resp.body if isinstance(resp.body, dict) else {}
+
+    async def async_pairing_exchange(self, instance_id: str, bootstrap_token: str) -> PairingResult:
+        """Exchange a one-time bootstrap token for an API key (Gateway app only).
+
+        Sent exactly once: an ambiguous outcome is reported as a failure and the
+        user re-authorizes pairing in the app's Web UI. The token and the issued
+        key are never logged or included in exceptions.
+        """
+        payload = {
+            "instance_id": instance_id,
+            "bootstrap_token": bootstrap_token,
+            "client": PAIRING_CLIENT,
+            "request_id": str(uuid.uuid4()),
+        }
+        try:
+            resp = await self._raw_request(
+                "POST", API_PAIRING_EXCHANGE, request_timeout=PAIRING_TIMEOUT, json_body=payload
+            )
+        except aiohttp.ClientConnectorError as err:
+            raise PairingUnavailableError("Could not connect to the Gateway app") from err
+        except (TimeoutError, aiohttp.ClientError) as err:
+            raise PairingError(f"Pairing request failed: {type(err).__name__}") from err
+        code, _ = _extract_error(resp.body)
+        if resp.status in (401, 403):
+            raise PairingRejectedError("Pairing token rejected", code=code, http_status=resp.status)
+        if resp.status == 429:
+            raise PairingRateLimitedError("Too many pairing attempts", code=code, http_status=429)
+        if resp.status == 404:
+            raise PairingUnavailableError("Pairing is not supported", code=code, http_status=404)
+        if resp.status != 201 or not isinstance(resp.body, dict):
+            raise PairingError(
+                f"Unexpected pairing response (HTTP {resp.status})",
+                code=code,
+                http_status=resp.status,
+            )
+        body = resp.body
+        api_key = body.get("api_key")
+        version = parse_api_version(body.get("api_version"))
+        if (
+            body.get("instance_id") != instance_id
+            or not isinstance(api_key, str)
+            or not _API_KEY_FORMAT.fullmatch(api_key)
+            or version != SUPPORTED_API_VERSION
+        ):
+            raise PairingError("Pairing response failed validation", http_status=resp.status)
+        return PairingResult(instance_id=instance_id, api_key=api_key, api_version=version)
 
     async def async_get_status(self) -> GatewayStatus:
         """Call ``GET /api/v1/status``."""

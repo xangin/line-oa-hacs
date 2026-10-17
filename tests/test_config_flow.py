@@ -20,11 +20,22 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from .mock_gateway import MockGatewayState, create_app
 
 
-async def _start(hass: HomeAssistant) -> str:
+async def _open_external(hass: HomeAssistant) -> dict:
+    """Open "Add integration", then choose the external Gateway option."""
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    assert result["type"] is FlowResultType.FORM
+    assert result["type"] is FlowResultType.MENU
     assert result["step_id"] == "user"
-    return result["flow_id"]
+    assert result["menu_options"] == ["addon", "external"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "external"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "external"
+    return result
+
+
+async def _start(hass: HomeAssistant) -> str:
+    return (await _open_external(hass))["flow_id"]
 
 
 async def test_user_flow_creates_entry(
@@ -38,7 +49,12 @@ async def test_user_flow_creates_entry(
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "LINE OA"
-    assert result["data"] == {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+    assert result["data"] == {
+        CONF_URL: gateway_url,
+        CONF_API_KEY: gateway_state.api_key,
+        "connection_mode": "external",
+        "instance_id": gateway_state.instance_id,
+    }
     assert result["result"].unique_id == gateway_state.instance_id
     assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
 
@@ -182,7 +198,10 @@ async def test_unique_id_check_uses_instance_id(
     instance_id check itself by bypassing that guard.
     """
     MockConfigEntry(domain=DOMAIN, unique_id=gateway_state.instance_id, data={}).add_to_hass(hass)
-    with patch("homeassistant.loader.Integration.single_config_entry", False):
+    with patch(
+        "custom_components.line_oa.config_flow.LineOAConfigFlow._async_current_entries",
+        return_value=[],
+    ):
         flow_id = await _start(hass)
         result = await hass.config_entries.flow.async_configure(
             flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
@@ -204,7 +223,7 @@ async def test_reconfigure_changes_url_and_api_key(
     gateway_state.api_key = "new-key"
     result = await setup_integration.start_reconfigure_flow(hass)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "reconfigure"
+    assert result["step_id"] == "reconfigure_external"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_URL: new_url})
     # Old key is kept when the field is left empty -> rejected by the Gateway.
@@ -337,7 +356,12 @@ async def test_zeroconf_discovery_only_asks_for_api_key(
     )
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+    assert result["data"] == {
+        CONF_URL: gateway_url,
+        CONF_API_KEY: gateway_state.api_key,
+        "connection_mode": "external",
+        "instance_id": gateway_state.instance_id,
+    }
     assert result["result"].unique_id == gateway_state.instance_id
     assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
 
@@ -413,7 +437,7 @@ async def test_user_form_prefills_gateway_on_this_host(
         ),
         patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", gateway.port),
     ):
-        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await _open_external(hass)
     schema_keys = {str(key): key for key in result["data_schema"].schema}
     assert schema_keys[CONF_URL].description == {
         "suggested_value": f"http://127.0.0.1:{gateway.port}"
@@ -431,7 +455,7 @@ async def test_user_form_without_local_gateway_is_empty(
         ),
         patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", 9),
     ):
-        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+        result = await _open_external(hass)
     schema_keys = {str(key): key for key in result["data_schema"].schema}
     assert not (schema_keys[CONF_URL].description or {}).get("suggested_value")
 
@@ -442,5 +466,27 @@ async def test_user_form_without_internal_url(hass: HomeAssistant) -> None:
         "custom_components.line_oa.config_flow.get_url",
         side_effect=NoURLAvailableError,
     ):
-        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    assert result["step_id"] == "user"
+        result = await _open_external(hass)
+    assert result["step_id"] == "external"
+
+
+@pytest.mark.parametrize(("version", "error"), [(None, None), (1, None), (2, "incompatible_api")])
+async def test_external_gateway_api_version(
+    hass: HomeAssistant,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
+    version: int | None,
+    error: str | None,
+) -> None:
+    """Older LXC Gateways (no api_version) and v1 work; other versions are refused."""
+    gateway_state.api_version = version
+    flow_id = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+    )
+    await hass.async_block_till_done()
+    if error is None:
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+    else:
+        assert result["type"] is FlowResultType.FORM
+        assert result["errors"] == {"base": error}

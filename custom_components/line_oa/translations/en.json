@@ -3,37 +3,23 @@
     "flow_title": "LINE OA Gateway ({name})",
     "step": {
       "user": {
-        "title": "Connect to LINE OA Gateway",
-        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. If a Gateway runs on this Home Assistant host (port 8790), the URL is filled in automatically. LINE login itself is managed in the Gateway Web UI, not in Home Assistant.",
+        "title": "Connection method",
+        "description": "Choose how Home Assistant connects to the LINE OA Gateway. Both use the same integration, actions and entities.",
+        "menu_options": {
+          "addon": "Home Assistant add-on (automatic pairing)",
+          "external": "External Gateway (LXC / Docker / Linux)"
+        }
+      },
+      "external": {
+        "title": "External Gateway",
+        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. If a Gateway runs on this Home Assistant host (port 8790), the URL is filled in automatically. LINE login itself is managed in the Gateway Web UI.",
         "data": {
           "url": "Gateway URL",
           "api_key": "API key"
         },
         "data_description": {
-          "url": "Base URL of the Gateway, for example http://192.168.1.50:8787",
+          "url": "Base URL of the Gateway, for example http://192.168.1.50:8790",
           "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
-        }
-      },
-      "reconfigure": {
-        "title": "Reconfigure LINE OA Gateway",
-        "description": "Change the Gateway URL or API key. Leave the API key empty to keep the current one.",
-        "data": {
-          "url": "Gateway URL",
-          "api_key": "API key"
-        },
-        "data_description": {
-          "url": "Base URL of the Gateway, for example http://192.168.1.50:8787",
-          "api_key": "New Gateway API key. Leave empty to keep the current key."
-        }
-      },
-      "reauth_confirm": {
-        "title": "Gateway API key rejected",
-        "description": "The LINE OA Gateway at {url} rejected the API key. Enter a valid Gateway API key. (If only the LINE login expired, sign in again in the Gateway Web UI instead.)",
-        "data": {
-          "api_key": "API key"
-        },
-        "data_description": {
-          "api_key": "Gateway API key created in the Gateway Web UI."
         }
       },
       "discovery_confirm": {
@@ -45,23 +31,94 @@
         "data_description": {
           "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
         }
+      },
+      "hassio_confirm": {
+        "title": "Connect the LINE OA add-on",
+        "description": "Connect the add-on \"{addon}\" to Home Assistant?\n\nHome Assistant will pair with the add-on securely and receive its own API key. No IP address, port or API key needs to be entered. No LINE message is sent."
+      },
+      "hassio_migrate": {
+        "title": "LINE OA add-on found",
+        "description": "The add-on \"{addon}\" was found, but LINE OA is already connected to {url}.\n\nSwitch the existing LINE OA integration to the add-on? Entities, entity IDs and automations are kept.",
+        "menu_options": {
+          "migrate_keep": "Keep the current connection",
+          "migrate_switch": "Switch to the add-on"
+        }
+      },
+      "migrate_switch": {
+        "title": "Switch Gateway",
+        "description": "LINE OA will be switched from {url} (instance {old_instance}) to the add-on \"{addon}\" (instance {new_instance}).\n\nHome Assistant first pairs with the add-on and verifies it; if anything fails, the current connection stays unchanged. The previous settings are kept so you can switch back with Reconfigure. These are different Gateways: aliases and the LINE login must also be set up in the add-on."
+      },
+      "reconfigure": {
+        "title": "Reconfigure LINE OA",
+        "description": "Choose what to change.",
+        "menu_options": {
+          "reconfigure_external": "External Gateway (URL / API key)",
+          "reconfigure_addon": "Home Assistant add-on (pair again / switch to add-on)"
+        }
+      },
+      "reconfigure_external": {
+        "title": "External Gateway",
+        "description": "Change the Gateway URL or API key. Leave the API key empty to keep the current one (required when switching from the add-on).",
+        "data": {
+          "url": "Gateway URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "url": "Base URL of the Gateway, for example http://192.168.1.50:8790",
+          "api_key": "New Gateway API key. Leave empty to keep the current key."
+        }
+      },
+      "reconfigure_addon": {
+        "title": "Pair with the add-on",
+        "description": "Pair Home Assistant with the add-on \"{addon}\" (currently connected to {url}).\n\nIf the add-on is already paired, first press \"Allow Home Assistant pairing\" (reset pairing) in the add-on Web UI, then submit."
+      },
+      "reauth_confirm": {
+        "title": "Gateway API key rejected",
+        "description": "The LINE OA Gateway at {url} rejected the API key. Enter a valid Gateway API key. (If only the LINE login expired, sign in again in the Gateway Web UI instead.)",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
+        }
+      },
+      "reauth_addon": {
+        "title": "Pair again with the add-on",
+        "description": "The add-on no longer accepts Home Assistant's API key.\n\nOpen the LINE OA add-on Web UI, press \"Allow Home Assistant pairing\" (reset pairing), then submit. You never need to copy an API key. (If only the LINE login expired, sign in again in the add-on instead.)"
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to the Gateway. Check the URL and that the Gateway is running.",
+      "cannot_connect": "Cannot connect to the Gateway. Check that it is running.",
       "invalid_auth": "The Gateway rejected the API key.",
       "invalid_response": "The Gateway returned an unexpected response (missing instance_id?).",
       "invalid_url": "Enter a full http:// or https:// URL without credentials, query or fragment.",
+      "incompatible_api": "This Gateway uses an unsupported API version. LINE OA requires Gateway API version 1.",
+      "api_key_required": "Enter the API key of the external Gateway.",
+      "addon_not_found": "The LINE OA add-on is not running or has not announced itself.",
+      "addon_already_paired": "The add-on is already paired. Press \"Allow Home Assistant pairing\" in the add-on Web UI, then try again.",
+      "pairing_expired": "The pairing code expired. Try again; a new one is issued automatically.",
+      "pairing_rejected": "Pairing failed: the add-on rejected the pairing code (invalid, expired or already used). Try again.",
+      "pairing_rate_limited": "Too many pairing attempts. Wait a minute and try again.",
+      "pairing_unavailable": "The add-on does not offer pairing or cannot be reached.",
+      "pairing_failed": "Pairing failed. No credential was saved. Check the add-on log and try again.",
+      "invalid_discovery_info": "The add-on announcement could not be verified.",
       "unknown": "Unexpected error."
     },
     "abort": {
       "already_configured": "This Gateway is already configured.",
-      "single_instance_allowed": "Only one LINE OA Gateway can be configured.",
+      "already_in_progress": "Setup is already in progress.",
+      "single_instance_allowed": "LINE OA is already connected to a Gateway. Use Reconfigure to switch Gateway.",
       "reconfigure_successful": "Re-configuration was successful.",
-      "reauth_successful": "Re-authentication was successful.",
-      "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match). Add it as a new integration instead.",
-      "cannot_connect": "The discovered Gateway does not respond.",
-      "invalid_discovery_info": "The Gateway announcement could not be used."
+      "reauth_successful": "Pairing / re-authentication was successful.",
+      "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match).",
+      "cannot_connect": "The Gateway does not respond.",
+      "invalid_discovery_info": "The Gateway announcement could not be verified.",
+      "incompatible_api": "The add-on uses an unsupported Gateway API version.",
+      "addon_not_supported": "This Home Assistant installation has no Supervisor, so add-ons are not available. Choose External Gateway instead.",
+      "addon_not_found": "No running LINE OA add-on was found. Install and start the LINE OA add-on (Settings → Add-ons), wait for \"Discovered: LINE OA\", or choose External Gateway.",
+      "addon_declined": "You chose to keep the current Gateway for this add-on.",
+      "kept_current": "The current connection is kept. You can switch later via Reconfigure.",
+      "migration_successful": "LINE OA now uses the add-on. Entities and automations were kept."
     }
   },
   "entity": {
@@ -220,6 +277,9 @@
     },
     "camera_image_invalid_format": {
       "message": "Camera {entity_id} returned an unsupported image format ({content_type}); only JPEG and PNG are supported."
+    },
+    "instance_mismatch": {
+      "message": "The Gateway at the configured address has a different instance_id (another or reinstalled Gateway). Use Reconfigure."
     }
   }
 }

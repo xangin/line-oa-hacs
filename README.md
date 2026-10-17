@@ -1,15 +1,21 @@
 # LINE OA for Home Assistant
 
-讓 Home Assistant 透過外部的 **LINE OA Gateway**（例如架在 Ubuntu LXC 上）發送 LINE 官方帳號通知。
+讓 Home Assistant 透過 **LINE OA Gateway** 發送 LINE 官方帳號通知。
+
+**只需要安裝這一份 HACS 整合。** 同一個 `line_oa` 整合同時支援兩種 Gateway，使用相同的動作、實體與自動化：
+
+| 連線方式 | Gateway 在哪裡 | 設定時要輸入 |
+| --- | --- | --- |
+| **Home Assistant Add-on** | HA 內的 LINE OA Add-on | **不用輸入**：HA 自動發現 → 你按確認 → 安全自動配對 |
+| **外部 Gateway** | Ubuntu LXC / Docker / Linux | Gateway 網址 + API Key |
 
 ```
-Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LINE OA Gateway（LXC） ──▶ LINE 官方帳號
+                         ┌─ Add-on 模式：Supervisor 探索 + 一次性配對 ─▶ LINE OA Add-on（HA 內）─┐
+Home Assistant ─ LINE OA ┤                                                                     ├─▶ LINE 官方帳號
+                         └─ 外部模式：網址 + API Key ──────────────────▶ LINE OA Gateway（LXC）──┘
 ```
 
-本整合**只負責 Home Assistant 端**：不實作 LINE 登入或通訊協定，不需要 LINE Cookie、LINE 密碼、Session、資料庫、Node.js、Chromium 或 HA Add-on。只需要兩個設定值：
-
-- Gateway URL
-- Gateway API Key
+本整合**只負責 Home Assistant 端**：不實作 LINE 登入或通訊協定，不需要 LINE Cookie、LINE 密碼、Session、資料庫、Node.js 或 Chromium。
 
 提供：
 
@@ -19,6 +25,14 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 | 狀態實體 | `binary_sensor.line_oa_connected`、`binary_sensor.line_oa_logged_in`、`sensor.line_oa_session_status`、`sensor.line_oa_last_error` |
 
 > 本整合刻意**不**建立 `notify.line_oa`，也不會依聯絡人建立任何實體。
+
+詳細文件：
+
+- [Add-on 自動探索與配對](docs/addon-connection.md)
+- [外部 Gateway（LXC）手動連線](docs/external-connection.md)
+- [LXC 切換至 Add-on](docs/migration.md)
+- [安全性：API Key、Discovery、配對](docs/security.md)
+- [錯誤排除](docs/troubleshooting.md)
 
 ---
 
@@ -47,39 +61,42 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 
 ---
 
-## Gateway 設定方式與 API Key
+## 設定（圖形化，不需要修改 `configuration.yaml`）
 
-1. 在 LXC 上啟動 LINE OA Gateway，並從瀏覽器開啟 Gateway Web UI。
-2. 在 Gateway Web UI 完成 **LINE 登入**並選擇官方帳號。
-3. 在 Gateway Web UI 設定**聯絡人別名**（例如 `simon`、`family`）。多人通知請在 LINE 建立群組，再將群組設定為一個別名。
-4. 在 Gateway Web UI **建立 API Key**，複製下來給 Home Assistant 使用。
+### 方式 A：Home Assistant Add-on（自動配對）
 
-兩種認證要分清楚：
+1. 安裝並啟動 **LINE OA Add-on**，在 Add-on 的 Web UI 完成 LINE 登入並設定聯絡人別名。
+2. **設定 → 裝置與服務** 會出現「**已發現：LINE OA**」，點「設定」。
+3. 確認「是否將 LINE OA Add-on 連接到 Home Assistant？」→ **提交**。
+4. HA 自動與 Add-on 安全配對、取得專用 API Key，建立四個狀態實體並啟用三個動作。
 
-| 認證 | 用途 | 在哪裡處理 |
+不需要輸入 IP、埠、API Key、LINE Cookie、Bot ID 或 Chat ID。詳見 [docs/addon-connection.md](docs/addon-connection.md)。
+
+也可以手動：**新增整合 → LINE OA → Home Assistant Add-on**（找不到 Add-on 時會顯示安裝指引，不會假裝已找到）。
+
+### 方式 B：外部 Gateway（LXC / Docker / Linux）
+
+1. 在 Gateway Web UI 完成 LINE 登入、設定別名，並**建立 API Key**。
+2. **設定 → 裝置與服務 → 新增整合 → LINE OA → 外部 Gateway**。
+3. 輸入 **Gateway 網址**（例如 `http://192.168.1.50:8790`）與 **API Key**。
+4. 整合會依序：檢查 `GET /api/v1/health` → 以 API Key 呼叫 `GET /api/v1/status` → 檢查 API 版本 → 讀取 `instance_id` → 建立設定。
+
+舊版 LXC Gateway 沒有回報 `api_version` 時視為 v1，可直接使用，不需要先升級。詳見 [docs/external-connection.md](docs/external-connection.md)。
+
+### 兩種認證要分清楚
+
+| 認證 | 用途 | 失效時怎麼處理 |
 | --- | --- | --- |
-| Gateway API Key | Home Assistant ↔ Gateway | HA 整合設定（可重新設定 / 重新驗證） |
-| LINE Session | Gateway ↔ LINE | **Gateway Web UI** 重新登入；HA 不需要改任何設定 |
-
----
-
-## Config Flow 操作（圖形化設定）
-
-不需要修改 `configuration.yaml`。
-
-1. **設定 → 裝置與服務 → 新增整合 → LINE OA**（若已出現「已發現：LINE OA Gateway」，直接點它即可，見下方「自動發現」）
-2. 輸入：
-   - **Gateway 網址**：例如 `http://192.168.1.50:8787`
-   - **API Key**：Gateway Web UI 建立的 Key
-3. 送出後整合會依序：檢查 `GET /api/v1/health` → 以 API Key 呼叫 `GET /api/v1/status` → 讀取 `instance_id` → 檢查是否已加入過同一台 Gateway → 建立設定。
+| Gateway API Key | Home Assistant ↔ Gateway | Add-on：在 Add-on 按「允許 Home Assistant 配對」後由 HA 重新配對；外部：輸入新的 API Key |
+| LINE Session | Gateway ↔ LINE | 在 **Gateway / Add-on 的 Web UI** 重新登入 LINE；HA 不需要改任何設定 |
 
 說明：
 
 - Gateway 可連線但 LINE Session 已過期時，**仍可完成設定**，LINE 登入問題會顯示在狀態實體上。
-- 以 Gateway 的 `instance_id` 作為唯一識別，**不是 IP**。Gateway 換 IP 時用「重新設定」即可。
-- 目前只支援**一台** Gateway。
+- 以 Gateway 的 `instance_id` 作為唯一識別，**不是 IP**。
+- 一次只連接**一台** Gateway（三個動作沒有 Gateway 選擇欄位）。已連接 LXC 又安裝 Add-on 時，HA 會詢問「保留目前連線」或「遷移至 Add-on」，**不會自動切換**，見 [docs/migration.md](docs/migration.md)。
 
-畫面（HA 2026.10.1 + Mock Gateway 實機截圖）：
+畫面（HA 2026.10.1 + Mock Gateway 實機截圖，外部 Gateway 早期版本的表單）：
 
 | 設定表單 | API Key 錯誤 | 設定完成 |
 | --- | --- | --- |
@@ -89,7 +106,7 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 | --- |
 | ![Action 清單](docs/screenshots/05-automation-action-picker.jpg) |
 
-### 自動發現 Gateway（免輸入網址）
+### 外部 Gateway 的自動發現（免輸入網址）
 
 HA 只會在下列兩種情況自動帶出 Gateway 網址，使用者只需要貼上 API Key：
 
@@ -141,11 +158,18 @@ sudo systemctl restart avahi-daemon
 
 ### 重新設定（Reconfigure）
 
+Add-on 模式：可「與 Add-on 重新配對」或「切換到外部 Gateway」（會帶入切換前的外部網址）。外部模式：可修改網址 / API Key；在有 Supervisor 的安裝上也可「切換至 Add-on」。
+
+### 重新設定（外部 Gateway 細節）
+
 **設定 → 裝置與服務 → LINE OA → ⋮ → 重新設定**，可變更 Gateway URL 與 API Key（API Key 留空 = 沿用原本的 Key）。變更後會重新驗證；如果新網址是另一台 Gateway（`instance_id` 不同）會被拒絕。
 
 ### 重新驗證（Reauth）
 
-只有 **Gateway 拒絕 API Key（401/403）** 時，HA 才會跳出重新驗證通知，要求輸入新的 API Key。LINE Session 過期**不會**觸發這個流程。
+只有 **Gateway 拒絕 API Key（401/403）** 時，HA 才會跳出重新驗證通知。LINE Session 過期**不會**觸發這個流程。
+
+- 外部模式：輸入新的 API Key。
+- Add-on 模式：在 Add-on Web UI 按「允許 Home Assistant 配對」，再回到 HA 按提交，HA 會自動重新配對，**不需要找或複製任何 API Key**。
 
 ---
 
@@ -331,7 +355,9 @@ logger:
 
 ## 已知限制
 
-- 只支援一台 Gateway（單一 Config Entry）。
+- 一次只連接一台 Gateway（Add-on 或外部擇一）。
+- Add-on 模式需要有 Supervisor 的安裝（HA OS / Supervised）；HA Container / Core 請用外部 Gateway。
+- 切換到另一台 Gateway 時，實體與自動化會保留，但聯絡人別名與 LINE 登入是各 Gateway 自己的資料，需在新 Gateway 內設定。
 - `who` 是文字輸入欄位；HA 的 Action Selector 目前沒有穩定的方式提供遠端動態下拉選單，因此未使用私有前端 API。後端會向 Gateway 驗證別名。
 - Gateway 使用自簽 HTTPS 憑證時無法連線（尚無「略過憑證驗證」選項）。
 - 少數攝影機整合本身會回傳快取畫面；本整合只能使用 HA 官方 Camera API 提供的畫面。
@@ -348,6 +374,9 @@ logger:
 | GET | `/api/v1/aliases` | 已設定的別名 |
 | POST | `/api/v1/messages/text` | JSON：`who`、`message`、`request_id` |
 | POST | `/api/v1/messages/image` | multipart：`who`、`image`、`request_id`（不含文字） |
+| POST | `/api/v1/pairing/exchange` | 僅 Add-on：以一次性 `bootstrap_token` 換取專用 API Key（見 [docs/security.md](docs/security.md)） |
+
+`/api/v1/health` 與 `/api/v1/status` 若回報 `api_version`，必須為 `1`；未回報時（舊版 LXC）視為 v1。
 
 ---
 

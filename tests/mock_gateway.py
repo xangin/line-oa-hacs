@@ -12,7 +12,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+import secrets
+import time
 from typing import Any
+import uuid
 
 from aiohttp import web
 
@@ -48,6 +52,46 @@ class MockGatewayState:
     send_status: str = "submitted"
     send_delay: float = 0.0
     requests: list[RecordedRequest] = field(default_factory=list)
+    # Reported API version (``None`` = older LXC Gateway that does not report it).
+    api_version: int | None = None
+    # --- Gateway app (add-on) pairing, mirroring line-oa-ha-addon pairing.ts ---
+    paired: bool = True
+    bootstrap: str | None = None
+    bootstrap_expires: float = 0.0
+    pairing_attempts: list[float] = field(default_factory=list)
+    pairing_calls: int = 0
+    pairing_status_override: int | None = None
+
+    def discovery_config(self, host: str = "local-line-oa") -> dict[str, Any]:
+        """Return the Supervisor discovery config the app would publish."""
+        config: dict[str, Any] = {
+            "host": host,
+            "port": 8787,
+            "instance_id": self.instance_id,
+            "api_version": 1,
+        }
+        if self.paired:
+            return {**config, "pairing_required": False}
+        if self.bootstrap is None or self.bootstrap_expires <= time.time():
+            self.bootstrap = secrets.token_urlsafe(32)
+            self.bootstrap_expires = time.time() + 600
+        expires = datetime.fromtimestamp(self.bootstrap_expires, UTC).isoformat()
+        return {
+            **config,
+            "pairing_required": True,
+            "bootstrap_token": self.bootstrap,
+            "bootstrap_expires_at": expires,
+        }
+
+    def reset_pairing(self) -> None:
+        """Simulate "Allow Home Assistant pairing" in the app Web UI."""
+        self.paired = False
+        self.api_key = "revoked-" + secrets.token_hex(8)
+        self.bootstrap = None
+
+    def expire_bootstrap(self) -> None:
+        """Make the current bootstrap token expire."""
+        self.bootstrap_expires = time.time() - 1
 
 
 def _error(status: int, code: str, message: str) -> web.Response:
@@ -65,7 +109,44 @@ def create_app(state: MockGatewayState) -> web.Application:
     async def health(request: web.Request) -> web.Response:
         if state.health_status != 200:
             return web.json_response({"status": "error"}, status=state.health_status)
-        return web.json_response({"status": "ok"})
+        body: dict[str, Any] = {"status": "ok"}
+        if state.api_version is not None:
+            body["api_version"] = state.api_version
+        return web.json_response(body)
+
+    async def pairing_exchange(request: web.Request) -> web.Response:
+        state.pairing_calls += 1
+        if state.pairing_status_override is not None:
+            return web.Response(status=state.pairing_status_override)
+        if "Origin" in request.headers or "Cookie" in request.headers:
+            return _error(403, "PAIRING_REJECTED", "internal client required")
+        now = time.time()
+        state.pairing_attempts = [t for t in state.pairing_attempts if now - t < 60]
+        if len(state.pairing_attempts) >= 5:
+            return _error(429, "PAIRING_RATE_LIMITED", "slow down")
+        state.pairing_attempts.append(now)
+        body = await request.json()
+        try:
+            uuid.UUID(str(body.get("request_id")))
+        except ValueError:
+            return _error(400, "INVALID_PAIRING_REQUEST", "bad request_id")
+        if body.get("client") != "homeassistant-line_oa":
+            return _error(400, "INVALID_PAIRING_REQUEST", "bad client")
+        if (
+            state.paired
+            or state.bootstrap is None
+            or state.bootstrap_expires <= now
+            or body.get("instance_id") != state.instance_id
+            or body.get("bootstrap_token") != state.bootstrap
+        ):
+            return _error(401, "PAIRING_REJECTED", "Pairing was rejected")
+        state.api_key = "loagw_" + secrets.token_urlsafe(32)
+        state.paired = True
+        state.bootstrap = None
+        return web.json_response(
+            {"instance_id": state.instance_id, "api_key": state.api_key, "api_version": 1},
+            status=201,
+        )
 
     async def status(request: web.Request) -> web.Response:
         if not authorized(request):
@@ -76,6 +157,7 @@ def create_app(state: MockGatewayState) -> web.Application:
         return web.json_response(
             {
                 "instance_id": state.instance_id,
+                **({"api_version": state.api_version} if state.api_version is not None else {}),
                 "version": state.version,
                 "gateway_status": "online",
                 "line_logged_in": state.line_logged_in,
@@ -143,6 +225,7 @@ def create_app(state: MockGatewayState) -> web.Application:
     app.router.add_get("/api/v1/aliases", aliases)
     app.router.add_post("/api/v1/messages/text", send_text)
     app.router.add_post("/api/v1/messages/image", send_image)
+    app.router.add_post("/api/v1/pairing/exchange", pairing_exchange)
     return app
 
 

@@ -6,7 +6,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DEFAULT_NAME, DOMAIN
+from .const import CONF_ENTITY_ID_BASE, DEFAULT_NAME, DOMAIN
 from .coordinator import LineOACoordinator
 
 
@@ -19,8 +19,11 @@ class LineOAEntity(CoordinatorEntity[LineOACoordinator]):
         """Initialize the entity."""
         super().__init__(coordinator)
         self.entity_description = description
-        # The config flow always sets the Gateway instance_id as unique_id.
-        instance_id = coordinator.config_entry.unique_id or coordinator.config_entry.entry_id
+        # Unique IDs come from the first Gateway's instance_id and stay the same
+        # after an explicit switch (LXC <-> app), so entity IDs, names and
+        # history are kept. The config entry unique_id follows the current Gateway.
+        entry = coordinator.config_entry
+        instance_id = entry.data.get(CONF_ENTITY_ID_BASE) or entry.unique_id or entry.entry_id
         self._attr_unique_id = f"{instance_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, instance_id)},

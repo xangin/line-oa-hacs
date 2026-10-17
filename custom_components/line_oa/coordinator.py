@@ -14,7 +14,7 @@ from .api import (
     LineOAError,
     LineOAGatewayClient,
 )
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
+from .const import CONF_INSTANCE_ID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
 
 type LineOAConfigEntry = ConfigEntry[LineOACoordinator]
 
@@ -66,7 +66,7 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
 
         self.gateway_reachable = True
         try:
-            return await self.client.async_get_status()
+            status = await self.client.async_get_status()
         except GatewayAuthError as err:
             raise ConfigEntryAuthFailed(
                 translation_domain=DOMAIN, translation_key="invalid_api_key"
@@ -84,3 +84,9 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
                 translation_key="status_failed",
                 translation_placeholders={"error": str(err)},
             ) from err
+        expected = self.config_entry.data.get(CONF_INSTANCE_ID) or self.config_entry.unique_id
+        if expected and status.instance_id != expected:
+            # A different Gateway now answers at this address (e.g. reinstalled).
+            # Do not show its state as ours; the user must reconfigure explicitly.
+            raise UpdateFailed(translation_domain=DOMAIN, translation_key="instance_mismatch")
+        return status

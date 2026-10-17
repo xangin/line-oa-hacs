@@ -16,6 +16,24 @@ DEFAULT_GATEWAY_PORT: Final = 8790
 LOCAL_PROBE_TIMEOUT: Final = 3  # seconds
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=60)
 
+# Config entry data keys (in addition to CONF_URL / CONF_API_KEY).
+CONF_CONNECTION_MODE: Final = "connection_mode"
+CONF_INSTANCE_ID: Final = "instance_id"
+CONF_ADDON_SLUG: Final = "addon_slug"
+CONF_DISCOVERY_UUID: Final = "discovery_uuid"
+# Stable base for entity/device unique IDs; survives an explicit Gateway switch.
+CONF_ENTITY_ID_BASE: Final = "entity_instance_id"
+# Connection used before the last explicit switch, kept for rollback.
+CONF_PREVIOUS_CONNECTION: Final = "previous_connection"
+# Add-on instance the user chose not to switch to (stops repeated prompts).
+CONF_DECLINED_ADDON: Final = "declined_addon_instance_id"
+
+MODE_ADDON: Final = "addon"
+MODE_EXTERNAL: Final = "external"
+
+# The Gateway app listens on this fixed port on the Supervisor network.
+ADDON_API_PORT: Final = 8787
+
 # Actions (service names). "send_screen_shot" is intentionally spelled this way.
 SERVICE_SEND_TEXT: Final = "send_text"
 SERVICE_SEND_IMAGE: Final = "send_image"

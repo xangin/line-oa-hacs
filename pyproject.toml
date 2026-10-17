@@ -1,6 +1,6 @@
 [project]
 name = "line-oa-hacs"
-version = "0.1.0"
+version = "0.2.0"
 description = "LINE OA notifications for Home Assistant via an external LINE OA Gateway"
 requires-python = ">=3.14.2"
 
@@ -17,7 +17,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "D", "PLR2004", "S105", "S106", "PLC0415", "PLR0917", "ASYNC240", "E501"]
+"tests/**" = ["S101", "D", "PLR2004", "S105", "S106", "PLC0415", "PLR0917", "ASYNC240", "E501", "PLR0915"]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true

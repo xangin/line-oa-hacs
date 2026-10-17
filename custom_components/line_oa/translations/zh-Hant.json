@@ -3,37 +3,23 @@
     "flow_title": "LINE OA Gateway（{name}）",
     "step": {
       "user": {
-        "title": "連線至 LINE OA Gateway",
-        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。若 Gateway 就在這台 Home Assistant 主機上（埠 8790），網址會自動填好。LINE 登入由 Gateway Web UI 管理，不在 Home Assistant 中進行。",
+        "title": "連線方式",
+        "description": "選擇 Home Assistant 連接 LINE OA Gateway 的方式。兩種方式使用同一個整合、相同的動作與實體。",
+        "menu_options": {
+          "addon": "Home Assistant Add-on（自動配對）",
+          "external": "外部 Gateway（LXC / Docker / Linux）"
+        }
+      },
+      "external": {
+        "title": "外部 Gateway",
+        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。若 Gateway 就在這台 Home Assistant 主機上（埠 8790），網址會自動填好。LINE 登入由 Gateway Web UI 管理。",
         "data": {
           "url": "Gateway 網址",
           "api_key": "API Key"
         },
         "data_description": {
-          "url": "Gateway 基本網址，例如 http://192.168.1.50:8787",
+          "url": "Gateway 基本網址，例如 http://192.168.1.50:8790",
           "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
-        }
-      },
-      "reconfigure": {
-        "title": "重新設定 LINE OA Gateway",
-        "description": "變更 Gateway 網址或 API Key。API Key 留空表示沿用目前的 Key。",
-        "data": {
-          "url": "Gateway 網址",
-          "api_key": "API Key"
-        },
-        "data_description": {
-          "url": "Gateway 基本網址，例如 http://192.168.1.50:8787",
-          "api_key": "新的 Gateway API Key；留空則沿用目前的 Key。"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Gateway API Key 遭拒",
-        "description": "位於 {url} 的 LINE OA Gateway 拒絕了目前的 API Key，請輸入有效的 Gateway API Key。（若只是 LINE 登入過期，請改到 Gateway Web UI 重新登入，不需要更換 API Key。）",
-        "data": {
-          "api_key": "API Key"
-        },
-        "data_description": {
-          "api_key": "在 Gateway Web UI 建立的 API Key。"
         }
       },
       "discovery_confirm": {
@@ -45,23 +31,94 @@
         "data_description": {
           "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
         }
+      },
+      "hassio_confirm": {
+        "title": "確認連線 LINE OA Add-on",
+        "description": "是否將 LINE OA Add-on「{addon}」連接到 Home Assistant？\n\nHome Assistant 會與 Add-on 安全配對並自動取得專用 API Key，不需要輸入 IP、埠或 API Key，也不會發送任何 LINE 訊息。"
+      },
+      "hassio_migrate": {
+        "title": "偵測到 LINE OA Add-on",
+        "description": "偵測到 LINE OA Add-on「{addon}」，但 LINE OA 目前已連接到 {url}。\n\n是否將現有 LINE OA 整合切換至 Add-on 連線？實體、實體 ID 與自動化都會保留。",
+        "menu_options": {
+          "migrate_keep": "保留目前連線",
+          "migrate_switch": "遷移至 Add-on"
+        }
+      },
+      "migrate_switch": {
+        "title": "切換 Gateway",
+        "description": "LINE OA 將從 {url}（instance {old_instance}）切換到 Add-on「{addon}」（instance {new_instance}）。\n\nHome Assistant 會先與 Add-on 配對並驗證；任何步驟失敗都不會改動目前的連線。原本的設定會保留，可透過「重新設定」切回。這是兩個不同的 Gateway：Add-on 內也需要設定別名並登入 LINE。"
+      },
+      "reconfigure": {
+        "title": "重新設定 LINE OA",
+        "description": "請選擇要變更的項目。",
+        "menu_options": {
+          "reconfigure_external": "外部 Gateway（網址 / API Key）",
+          "reconfigure_addon": "Home Assistant Add-on（重新配對 / 切換至 Add-on）"
+        }
+      },
+      "reconfigure_external": {
+        "title": "外部 Gateway",
+        "description": "變更 Gateway 網址或 API Key。API Key 留空表示沿用目前的 Key（從 Add-on 切換過來時必填）。",
+        "data": {
+          "url": "Gateway 網址",
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "url": "Gateway 基本網址，例如 http://192.168.1.50:8790",
+          "api_key": "新的 Gateway API Key；留空則沿用目前的 Key。"
+        }
+      },
+      "reconfigure_addon": {
+        "title": "與 Add-on 配對",
+        "description": "與 Add-on「{addon}」重新配對（目前連線：{url}）。\n\n若 Add-on 已經配對過，請先在 Add-on 的 Web UI 按「允許 Home Assistant 配對」（重設配對），再按提交。"
+      },
+      "reauth_confirm": {
+        "title": "API Key 失效",
+        "description": "位於 {url} 的 LINE OA Gateway 拒絕了目前的 API Key，請輸入有效的 Gateway API Key。（若只是 LINE 登入過期，請改到 Gateway Web UI 重新登入，不需要更換 API Key。）",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
+        }
+      },
+      "reauth_addon": {
+        "title": "重新配對",
+        "description": "Add-on 已不接受 Home Assistant 的 API Key。\n\n請開啟 LINE OA Add-on 的 Web UI，按「允許 Home Assistant 配對」（重設配對），再按提交，不需要複製任何 API Key。（若只是 LINE 登入過期，請改到 Add-on 內重新登入。）"
       }
     },
     "error": {
-      "cannot_connect": "無法連線至 Gateway，請確認網址正確且 Gateway 正在執行。",
+      "cannot_connect": "Gateway 無法連線，請確認 Gateway 正在執行。",
       "invalid_auth": "Gateway 拒絕此 API Key。",
       "invalid_response": "Gateway 回應格式不正確（可能缺少 instance_id）。",
       "invalid_url": "請輸入完整的 http:// 或 https:// 網址，不可包含帳密、查詢字串或錨點。",
+      "incompatible_api": "此 Gateway 的 API 版本不相容。LINE OA 需要 Gateway API 版本 1。",
+      "api_key_required": "請輸入外部 Gateway 的 API Key。",
+      "addon_not_found": "找不到執行中的 LINE OA Add-on。",
+      "addon_already_paired": "Add-on 已經配對過。請先在 Add-on 的 Web UI 按「允許 Home Assistant 配對」，再重試。",
+      "pairing_expired": "配對碼已過期，請重試；系統會自動取得新的配對碼。",
+      "pairing_rejected": "配對失敗：Add-on 拒絕了配對碼（無效、已過期或已使用），請重試。",
+      "pairing_rate_limited": "配對嘗試次數過多，請等一分鐘後再試。",
+      "pairing_unavailable": "Add-on 不支援配對或無法連線。",
+      "pairing_failed": "配對失敗，未儲存任何憑證。請查看 Add-on 日誌後重試。",
+      "invalid_discovery_info": "無法驗證 Add-on 的探索資訊。",
       "unknown": "發生未預期的錯誤。"
     },
     "abort": {
       "already_configured": "此 Gateway 已經設定過。",
-      "single_instance_allowed": "目前只能設定一個 LINE OA Gateway。",
+      "already_in_progress": "設定流程已在進行中。",
+      "single_instance_allowed": "LINE OA 已經連接一個 Gateway。要切換 Gateway 請使用「重新設定」。",
       "reconfigure_successful": "重新設定成功。",
-      "reauth_successful": "重新驗證成功。",
-      "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致），無法用重新設定替換。",
-      "cannot_connect": "發現的 Gateway 沒有回應。",
-      "invalid_discovery_info": "無法使用此 Gateway 的廣播資訊。"
+      "reauth_successful": "配對成功。",
+      "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致）。",
+      "cannot_connect": "Gateway 無法連線。",
+      "invalid_discovery_info": "無法驗證 Gateway 的探索資訊。",
+      "incompatible_api": "Add-on 的 Gateway API 版本不相容。",
+      "addon_not_supported": "此 Home Assistant 安裝方式沒有 Supervisor，無法使用 Add-on。請改選「外部 Gateway」。",
+      "addon_not_found": "找不到執行中的 LINE OA Add-on。請先在「設定 → 附加元件」安裝並啟動 LINE OA Add-on，等待出現「已發現 LINE OA」，或改選「外部 Gateway」。",
+      "addon_declined": "你已選擇保留目前的 Gateway。",
+      "kept_current": "已保留目前連線。之後可透過「重新設定」切換至 Add-on。",
+      "migration_successful": "已遷移至 Add-on，實體與自動化皆已保留。"
     }
   },
   "entity": {
@@ -220,6 +277,9 @@
     },
     "camera_image_invalid_format": {
       "message": "攝影機 {entity_id} 回傳不支援的圖片格式（{content_type}），僅支援 JPEG 與 PNG。"
+    },
+    "instance_mismatch": {
+      "message": "LINE OA Gateway 的 instance_id 與設定不符；可能是另一台 Gateway 或已重新安裝，請使用「重新設定」。"
     }
   }
 }

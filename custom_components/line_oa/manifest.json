@@ -2,7 +2,8 @@
   "domain": "line_oa",
   "name": "LINE OA",
   "after_dependencies": [
-    "camera"
+    "camera",
+    "hassio"
   ],
   "codeowners": [
     "@xangin"
@@ -13,8 +14,7 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/xangin/line-oa-hacs/issues",
   "requirements": [],
-  "single_config_entry": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "zeroconf": [
     "_line-oa-gw._tcp.local."
   ]
