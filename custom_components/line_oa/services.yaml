@@ -1,0 +1,53 @@
+send_text:
+  fields:
+    who:
+      required: true
+      example: simon
+      selector:
+        text:
+    message:
+      required: true
+      example: "洗衣機已完成"
+      selector:
+        text:
+          multiline: true
+
+send_image:
+  fields:
+    who:
+      required: true
+      example: simon
+      selector:
+        text:
+    image_path:
+      required: true
+      example: "/media/snapshot.jpg"
+      selector:
+        text:
+    message:
+      required: false
+      example: "設備檢查結果"
+      selector:
+        text:
+          multiline: true
+
+send_screen_shot:
+  fields:
+    who:
+      required: true
+      example: simon
+      selector:
+        text:
+    camera_entity:
+      required: true
+      example: camera.front_door
+      selector:
+        entity:
+          filter:
+            - domain: camera
+    message:
+      required: false
+      example: "門口偵測到有人"
+      selector:
+        text:
+          multiline: true

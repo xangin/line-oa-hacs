@@ -1,0 +1,223 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "連線至 LINE OA Gateway",
+        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。LINE 登入由 Gateway Web UI 管理，不在 Home Assistant 中進行。",
+        "data": {
+          "url": "Gateway 網址",
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "url": "Gateway 基本網址，例如 http://192.168.1.50:8787",
+          "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
+        }
+      },
+      "reconfigure": {
+        "title": "重新設定 LINE OA Gateway",
+        "description": "變更 Gateway 網址或 API Key。API Key 留空表示沿用目前的 Key。",
+        "data": {
+          "url": "Gateway 網址",
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "url": "Gateway 基本網址，例如 http://192.168.1.50:8787",
+          "api_key": "新的 Gateway API Key；留空則沿用目前的 Key。"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Gateway API Key 遭拒",
+        "description": "位於 {url} 的 LINE OA Gateway 拒絕了目前的 API Key，請輸入有效的 Gateway API Key。（若只是 LINE 登入過期，請改到 Gateway Web UI 重新登入，不需要更換 API Key。）",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "在 Gateway Web UI 建立的 API Key。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "無法連線至 Gateway，請確認網址正確且 Gateway 正在執行。",
+      "invalid_auth": "Gateway 拒絕此 API Key。",
+      "invalid_response": "Gateway 回應格式不正確（可能缺少 instance_id）。",
+      "invalid_url": "請輸入完整的 http:// 或 https:// 網址，不可包含帳密、查詢字串或錨點。",
+      "unknown": "發生未預期的錯誤。"
+    },
+    "abort": {
+      "already_configured": "此 Gateway 已經設定過。",
+      "single_instance_allowed": "目前只能設定一個 LINE OA Gateway。",
+      "reconfigure_successful": "重新設定成功。",
+      "reauth_successful": "重新驗證成功。",
+      "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致），無法用重新設定替換。"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Gateway 連線狀態"
+      },
+      "logged_in": {
+        "name": "LINE 登入狀態"
+      }
+    },
+    "sensor": {
+      "session_status": {
+        "name": "LINE Session 狀態",
+        "state": {
+          "ready": "就緒",
+          "auth_required": "需要登入",
+          "expired": "已過期",
+          "disconnected": "已斷線",
+          "error": "錯誤",
+          "unknown": "未知"
+        },
+        "state_attributes": {
+          "account_name": {
+            "name": "官方帳號名稱"
+          }
+        }
+      },
+      "last_error": {
+        "name": "最近錯誤"
+      }
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "傳送文字",
+      "description": "傳送文字訊息給 LINE OA Gateway 中設定的單一接收者別名。",
+      "fields": {
+        "who": {
+          "name": "接收者",
+          "description": "接收者別名，請填寫 LINE OA Gateway 中已設定的別名。只能填一個別名；多人通知請在 LINE 建立群組並設定為單一別名。"
+        },
+        "message": {
+          "name": "訊息",
+          "description": "要傳送的文字，支援 Template。"
+        }
+      }
+    },
+    "send_image": {
+      "name": "傳送圖片",
+      "description": "將 Home Assistant 系統上的 JPEG 或 PNG 圖片檔（例如 /media 內）傳送給單一接收者別名。",
+      "fields": {
+        "who": {
+          "name": "接收者",
+          "description": "接收者別名，請填寫 LINE OA Gateway 中已設定的別名。"
+        },
+        "image_path": {
+          "name": "圖片路徑",
+          "description": "Home Assistant 系統上的 JPEG/PNG 絕對路徑（上限 10 MiB），必須位於允許的目錄內，例如 /media。不是 Gateway LXC 的路徑。"
+        },
+        "message": {
+          "name": "訊息",
+          "description": "選填，隨圖片附加的文字。"
+        }
+      }
+    },
+    "send_screen_shot": {
+      "name": "傳送攝影機截圖",
+      "description": "從攝影機實體即時擷取一張靜態畫面並傳送給單一接收者別名。圖片只存在記憶體中，不會存成檔案。",
+      "fields": {
+        "who": {
+          "name": "接收者",
+          "description": "接收者別名，請填寫 LINE OA Gateway 中已設定的別名。"
+        },
+        "camera_entity": {
+          "name": "攝影機",
+          "description": "要擷取畫面的攝影機實體。"
+        },
+        "message": {
+          "name": "訊息",
+          "description": "選填，隨截圖附加的文字。"
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "LINE OA 整合尚未設定或尚未載入。"
+    },
+    "cannot_connect": {
+      "message": "無法連線至 LINE OA Gateway（{error}），訊息沒有送出。"
+    },
+    "gateway_unreachable": {
+      "message": "無法連線至 LINE OA Gateway：{error}"
+    },
+    "invalid_api_key": {
+      "message": "LINE OA Gateway 拒絕 Home Assistant 的 API Key，請重新驗證整合。"
+    },
+    "status_failed": {
+      "message": "無法讀取 LINE OA Gateway 狀態：{error}"
+    },
+    "alias_not_found": {
+      "message": "找不到 LINE 接收者別名「{who}」，請確認 LINE OA Gateway 中已設定此別名。"
+    },
+    "line_session_expired": {
+      "message": "LINE 登入已過期，請到 Gateway Web UI 重新登入。訊息沒有送出。"
+    },
+    "line_auth_required": {
+      "message": "Gateway 尚未登入 LINE，請到 Gateway Web UI 登入。訊息沒有送出。"
+    },
+    "line_rejected": {
+      "message": "LINE 明確拒絕此訊息：{reason}"
+    },
+    "rate_limited": {
+      "message": "對 LINE OA Gateway 的請求過於頻繁，請稍後再試（建議等待：{retry_after}）。訊息沒有送出。"
+    },
+    "gateway_payload_too_large": {
+      "message": "LINE OA Gateway 拒絕此圖片：檔案過大。"
+    },
+    "message_not_supported": {
+      "message": "LINE OA Gateway 不支援圖片附加文字（{reason}），因此沒有送出任何內容。請移除 message 欄位或升級 Gateway。"
+    },
+    "gateway_unavailable": {
+      "message": "LINE OA Gateway 暫時無法服務，訊息沒有送出。"
+    },
+    "endpoint_not_found": {
+      "message": "LINE OA Gateway 不支援此 API，請確認 Gateway 版本。"
+    },
+    "gateway_rejected_request": {
+      "message": "LINE OA Gateway 拒絕此請求：{reason}"
+    },
+    "gateway_error": {
+      "message": "LINE OA Gateway 錯誤：{error}"
+    },
+    "send_unknown": {
+      "message": "LINE 訊息發送結果不明，可能已經送出，請勿立即重試。（request_id：{request_id}）"
+    },
+    "image_path_not_absolute": {
+      "message": "圖片路徑「{path}」必須是絕對路徑，例如 /media/snapshot.jpg。"
+    },
+    "image_not_found": {
+      "message": "圖片「{path}」不存在或不是一般檔案。"
+    },
+    "image_path_not_allowed": {
+      "message": "不允許讀取「{path}」。請使用 /media 內的檔案，或 allowlist_external_dirs 中列出的目錄。"
+    },
+    "image_invalid_format": {
+      "message": "「{path}」不是 JPEG 或 PNG 圖片。"
+    },
+    "image_read_failed": {
+      "message": "無法讀取圖片「{path}」。"
+    },
+    "image_too_large": {
+      "message": "圖片「{path}」超過 10 MiB。"
+    },
+    "camera_not_found": {
+      "message": "攝影機實體 {entity_id} 不存在。"
+    },
+    "camera_unavailable": {
+      "message": "攝影機 {entity_id} 目前無法使用。"
+    },
+    "camera_image_failed": {
+      "message": "攝影機 {entity_id} 無法提供目前的靜態畫面，沒有送出任何內容。"
+    },
+    "camera_image_too_large": {
+      "message": "攝影機 {entity_id} 的畫面超過 10 MiB。"
+    },
+    "camera_image_invalid_format": {
+      "message": "攝影機 {entity_id} 回傳不支援的圖片格式（{content_type}），僅支援 JPEG 與 PNG。"
+    }
+  }
+}

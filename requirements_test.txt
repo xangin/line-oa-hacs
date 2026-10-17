@@ -1,0 +1,4 @@
+pytest-homeassistant-custom-component==0.13.372
+PyTurboJPEG==1.8.3
+ruff==0.17.1
+mypy==2.4.0

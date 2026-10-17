@@ -1,0 +1,34 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "default": "mdi:lan-disconnect",
+        "state": { "on": "mdi:lan-connect" }
+      },
+      "logged_in": {
+        "default": "mdi:account-off",
+        "state": { "on": "mdi:account-check" }
+      }
+    },
+    "sensor": {
+      "session_status": {
+        "default": "mdi:message-badge",
+        "state": {
+          "ready": "mdi:message-check",
+          "auth_required": "mdi:account-key",
+          "expired": "mdi:timer-alert",
+          "disconnected": "mdi:lan-disconnect",
+          "error": "mdi:alert-circle"
+        }
+      },
+      "last_error": {
+        "default": "mdi:alert-circle-outline"
+      }
+    }
+  },
+  "services": {
+    "send_text": { "service": "mdi:message-text" },
+    "send_image": { "service": "mdi:image" },
+    "send_screen_shot": { "service": "mdi:cctv" }
+  }
+}

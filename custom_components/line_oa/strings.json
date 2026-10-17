@@ -1,0 +1,223 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to LINE OA Gateway",
+        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. LINE login itself is managed in the Gateway Web UI, not in Home Assistant.",
+        "data": {
+          "url": "Gateway URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "url": "Base URL of the Gateway, for example http://192.168.1.50:8787",
+          "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure LINE OA Gateway",
+        "description": "Change the Gateway URL or API key. Leave the API key empty to keep the current one.",
+        "data": {
+          "url": "Gateway URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "url": "Base URL of the Gateway, for example http://192.168.1.50:8787",
+          "api_key": "New Gateway API key. Leave empty to keep the current key."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Gateway API key rejected",
+        "description": "The LINE OA Gateway at {url} rejected the API key. Enter a valid Gateway API key. (If only the LINE login expired, sign in again in the Gateway Web UI instead.)",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Gateway API key created in the Gateway Web UI."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Gateway. Check the URL and that the Gateway is running.",
+      "invalid_auth": "The Gateway rejected the API key.",
+      "invalid_response": "The Gateway returned an unexpected response (missing instance_id?).",
+      "invalid_url": "Enter a full http:// or https:// URL without credentials, query or fragment.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This Gateway is already configured.",
+      "single_instance_allowed": "Only one LINE OA Gateway can be configured.",
+      "reconfigure_successful": "Re-configuration was successful.",
+      "reauth_successful": "Re-authentication was successful.",
+      "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match). Add it as a new integration instead."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "logged_in": {
+        "name": "Logged in"
+      }
+    },
+    "sensor": {
+      "session_status": {
+        "name": "Session status",
+        "state": {
+          "ready": "Ready",
+          "auth_required": "Authentication required",
+          "expired": "Expired",
+          "disconnected": "Disconnected",
+          "error": "Error",
+          "unknown": "Unknown"
+        },
+        "state_attributes": {
+          "account_name": {
+            "name": "Account name"
+          }
+        }
+      },
+      "last_error": {
+        "name": "Last error"
+      }
+    }
+  },
+  "services": {
+    "send_text": {
+      "name": "Send text",
+      "description": "Sends a text message to one LINE recipient alias configured in the LINE OA Gateway.",
+      "fields": {
+        "who": {
+          "name": "Recipient",
+          "description": "Recipient alias configured in the LINE OA Gateway. A single alias only; use a LINE group alias to notify several people."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Text to send. Templates are supported."
+        }
+      }
+    },
+    "send_image": {
+      "name": "Send image",
+      "description": "Sends a JPEG or PNG image file from the Home Assistant file system (for example /media) to one LINE recipient alias.",
+      "fields": {
+        "who": {
+          "name": "Recipient",
+          "description": "Recipient alias configured in the LINE OA Gateway. A single alias only."
+        },
+        "image_path": {
+          "name": "Image path",
+          "description": "Absolute path of a JPEG/PNG file on the Home Assistant system (max 10 MiB). Must be inside an allowed directory such as /media."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Optional text sent with the image."
+        }
+      }
+    },
+    "send_screen_shot": {
+      "name": "Send camera screenshot",
+      "description": "Takes a fresh still image from a camera entity and sends it to one LINE recipient alias. The image is kept in memory only.",
+      "fields": {
+        "who": {
+          "name": "Recipient",
+          "description": "Recipient alias configured in the LINE OA Gateway. A single alias only."
+        },
+        "camera_entity": {
+          "name": "Camera",
+          "description": "Camera entity to capture."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Optional text sent with the screenshot."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "The LINE OA integration is not set up or not loaded."
+    },
+    "cannot_connect": {
+      "message": "Cannot connect to the LINE OA Gateway ({error}). The message was not sent."
+    },
+    "gateway_unreachable": {
+      "message": "Cannot reach the LINE OA Gateway: {error}"
+    },
+    "invalid_api_key": {
+      "message": "The LINE OA Gateway rejected the Home Assistant API key. Re-authenticate the integration."
+    },
+    "status_failed": {
+      "message": "Could not read the LINE OA Gateway status: {error}"
+    },
+    "alias_not_found": {
+      "message": "LINE recipient alias \"{who}\" was not found in the LINE OA Gateway."
+    },
+    "line_session_expired": {
+      "message": "The Gateway's LINE login has expired. Sign in again in the Gateway Web UI. The message was not sent."
+    },
+    "line_auth_required": {
+      "message": "The Gateway is not signed in to LINE. Sign in in the Gateway Web UI. The message was not sent."
+    },
+    "line_rejected": {
+      "message": "LINE rejected the message: {reason}"
+    },
+    "rate_limited": {
+      "message": "Too many requests to the LINE OA Gateway; try again later (retry after: {retry_after}). The message was not sent."
+    },
+    "gateway_payload_too_large": {
+      "message": "The LINE OA Gateway rejected the image as too large."
+    },
+    "message_not_supported": {
+      "message": "The LINE OA Gateway does not support sending a message together with an image ({reason}). Nothing was sent. Remove the message field or upgrade the Gateway."
+    },
+    "gateway_unavailable": {
+      "message": "The LINE OA Gateway is temporarily unavailable. The message was not sent."
+    },
+    "endpoint_not_found": {
+      "message": "The LINE OA Gateway does not support this API endpoint. Check the Gateway version."
+    },
+    "gateway_rejected_request": {
+      "message": "The LINE OA Gateway rejected the request: {reason}"
+    },
+    "gateway_error": {
+      "message": "LINE OA Gateway error: {error}"
+    },
+    "send_unknown": {
+      "message": "The LINE message send result is unknown; it may already have been sent. Do not retry immediately. (request_id: {request_id})"
+    },
+    "image_path_not_absolute": {
+      "message": "Image path \"{path}\" must be an absolute path, for example /media/snapshot.jpg."
+    },
+    "image_not_found": {
+      "message": "Image file \"{path}\" does not exist or is not a regular file."
+    },
+    "image_path_not_allowed": {
+      "message": "Access to \"{path}\" is not allowed. Use a file inside /media or a directory listed in allowlist_external_dirs."
+    },
+    "image_invalid_format": {
+      "message": "\"{path}\" is not a JPEG or PNG image."
+    },
+    "image_read_failed": {
+      "message": "Could not read image file \"{path}\"."
+    },
+    "image_too_large": {
+      "message": "Image \"{path}\" is larger than 10 MiB."
+    },
+    "camera_not_found": {
+      "message": "Camera entity {entity_id} does not exist."
+    },
+    "camera_unavailable": {
+      "message": "Camera {entity_id} is unavailable."
+    },
+    "camera_image_failed": {
+      "message": "Camera {entity_id} could not provide a current still image. Nothing was sent."
+    },
+    "camera_image_too_large": {
+      "message": "The still image from camera {entity_id} is larger than 10 MiB."
+    },
+    "camera_image_invalid_format": {
+      "message": "Camera {entity_id} returned an unsupported image format ({content_type}); only JPEG and PNG are supported."
+    }
+  }
+}

@@ -1,0 +1,38 @@
+[project]
+name = "line-oa-homeassistant"
+version = "0.1.0"
+description = "LINE OA notifications for Home Assistant via an external LINE OA Gateway"
+requires-python = ">=3.14.2"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "ASYNC", "PL", "D", "S", "T20", "PIE", "RET"]
+ignore = [
+    "D203", "D213", "D105", "D107",
+    "PLR0911", "PLR0912", "PLR0913", "PLR2004",
+    "RUF001", "RUF002", "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "D", "PLR2004", "S105", "S106", "PLC0415", "PLR0917", "ASYNC240", "E501"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["homeassistant", "custom_components"]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unreachable = true
+ignore_missing_imports = false
+follow_imports = "silent"
+files = ["custom_components/line_oa"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
