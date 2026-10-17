@@ -26,7 +26,7 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 
 | 項目 | 需求 |
 | --- | --- |
-| Home Assistant | **2026.10.0** 以上（已用 2026.10.1 測試） |
+| Home Assistant | **2026.9.0** 以上（已用 2026.9.0、2026.9.2、2026.10.1 測試） |
 | HACS | 2.x |
 | LINE OA Gateway | 實作 [API 契約](#gateway-api-契約) `/api/v1/*` 的版本 |
 
@@ -37,7 +37,7 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 ### 方法一：HACS 自訂 Repository（建議）
 
 1. 開啟 HACS → 右上角 ⋮ → **自訂儲存庫（Custom repositories）**。
-2. Repository 填入 `https://github.com/xangin/line-oa-homeassistant`，類別選 **Integration**。
+2. Repository 填入 `https://github.com/xangin/line-oa-hacs`，類別選 **Integration**。
 3. 在 HACS 搜尋 **LINE OA** → 下載。
 4. **重新啟動 Home Assistant**。
 

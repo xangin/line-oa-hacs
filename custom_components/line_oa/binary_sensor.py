@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import (
+# Imported from the package root: ``binary_sensor.const`` only exists from
+# Home Assistant 2026.10, while the root import works on 2026.9 and later.
+from homeassistant.components.binary_sensor import (  # type: ignore[attr-defined]
+    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
