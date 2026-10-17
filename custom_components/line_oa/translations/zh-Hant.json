@@ -99,7 +99,7 @@
     },
     "send_image": {
       "name": "傳送圖片",
-      "description": "將 Home Assistant 系統上的 JPEG 或 PNG 圖片檔（例如 /media 內）傳送給單一接收者別名。",
+      "description": "將 Home Assistant 系統上的 JPEG 或 PNG 圖片檔（例如 /media 內）傳送給單一接收者別名。圖片不附加文字，需要文字請另外使用「傳送文字」。",
       "fields": {
         "who": {
           "name": "接收者",
@@ -108,16 +108,12 @@
         "image_path": {
           "name": "圖片路徑",
           "description": "Home Assistant 系統上的 JPEG/PNG 絕對路徑（上限 10 MiB），必須位於允許的目錄內，例如 /media。不是 Gateway LXC 的路徑。"
-        },
-        "message": {
-          "name": "訊息",
-          "description": "選填，隨圖片附加的文字。"
         }
       }
     },
     "send_screen_shot": {
       "name": "傳送攝影機截圖",
-      "description": "從攝影機實體即時擷取一張靜態畫面並傳送給單一接收者別名。圖片只存在記憶體中，不會存成檔案。",
+      "description": "從攝影機實體即時擷取一張靜態畫面並傳送給單一接收者別名。圖片只存在記憶體中，不會存成檔案，也不附加文字。",
       "fields": {
         "who": {
           "name": "接收者",
@@ -126,10 +122,6 @@
         "camera_entity": {
           "name": "攝影機",
           "description": "要擷取畫面的攝影機實體。"
-        },
-        "message": {
-          "name": "訊息",
-          "description": "選填，隨截圖附加的文字。"
         }
       }
     }
@@ -167,9 +159,6 @@
     },
     "gateway_payload_too_large": {
       "message": "LINE OA Gateway 拒絕此圖片：檔案過大。"
-    },
-    "message_not_supported": {
-      "message": "LINE OA Gateway 不支援圖片附加文字（{reason}），因此沒有送出任何內容。請移除 message 欄位或升級 Gateway。"
     },
     "gateway_unavailable": {
       "message": "LINE OA Gateway 暫時無法服務，訊息沒有送出。"

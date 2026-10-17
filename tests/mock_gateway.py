@@ -43,7 +43,6 @@ class MockGatewayState:
     health_status: int = 200
     status_override: tuple[int, Any] | None = None
     aliases_status: int = 200
-    supports_image_message: bool = True
     # (http_status, json_body) returned by message endpoints, or None for success.
     send_response: tuple[int, Any] | None = None
     send_status: str = "submitted"
@@ -133,8 +132,9 @@ def create_app(state: MockGatewayState) -> web.Application:
             elif part.name:
                 fields[part.name] = await part.text()
         state.requests.append(recorded)
-        if "message" in fields and not state.supports_image_message:
-            return _error(400, "MESSAGE_NOT_SUPPORTED", "message field is not supported")
+        # The image endpoint carries no text.
+        if set(fields) - {"who", "request_id"}:
+            return _error(400, "UNSUPPORTED_FIELD", "Only who, image and request_id are accepted")
         return await _send_outcome(fields.get("who", ""), fields.get("request_id", ""))
 
     app = web.Application(client_max_size=20 * 1024 * 1024)

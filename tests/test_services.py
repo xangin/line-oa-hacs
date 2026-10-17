@@ -303,7 +303,7 @@ def media_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
     return real
 
 
-async def test_send_image_jpeg_with_message(
+async def test_send_image_jpeg(
     hass: HomeAssistant,
     setup_integration: MockConfigEntry,
     gateway_state: MockGatewayState,
@@ -313,10 +313,7 @@ async def test_send_image_jpeg_with_message(
     image = media_dir / "snapshot.jpg"
     image.write_bytes(JPEG)
     result = await _call(
-        hass,
-        "send_image",
-        {"who": "simon", "image_path": str(image), "message": "設備檢查結果"},
-        response=True,
+        hass, "send_image", {"who": "simon", "image_path": str(image)}, response=True
     )
     assert result["status"] == "submitted"
     request = gateway_state.requests[0]
@@ -324,18 +321,18 @@ async def test_send_image_jpeg_with_message(
     assert request.image == JPEG
     assert request.image_content_type == "image/jpeg"
     assert request.image_filename == "snapshot.jpg"
-    assert set(request.fields) == {"who", "message", "request_id"}
-    assert request.fields["message"] == "設備檢查結果"
+    # Images carry no text: only who, image and request_id are sent.
+    assert set(request.fields) == {"who", "request_id"}
     assert str(image) not in str(request.fields)
 
 
-async def test_send_image_png_without_message(
+async def test_send_image_png(
     hass: HomeAssistant,
     setup_integration: MockConfigEntry,
     gateway_state: MockGatewayState,
     media_dir: Path,
 ) -> None:
-    """PNG works; an omitted message is not sent as a field."""
+    """PNG files keep their real content type."""
     image = media_dir / "chart.png"
     image.write_bytes(PNG)
     await _call(hass, "send_image", {"who": "simon", "image_path": str(image)})
@@ -344,19 +341,28 @@ async def test_send_image_png_without_message(
     assert set(request.fields) == {"who", "request_id"}
 
 
-async def test_send_image_message_not_supported_by_gateway(
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        ("send_image", {"who": "simon", "image_path": "/media/a.jpg", "message": "x"}),
+        ("send_image", {"who": "simon", "image_path": "/media/a.jpg", "message": ""}),
+        (
+            "send_screen_shot",
+            {"who": "simon", "camera_entity": "camera.front_door", "message": "x"},
+        ),
+    ],
+)
+async def test_image_actions_reject_message(
     hass: HomeAssistant,
     setup_integration: MockConfigEntry,
     gateway_state: MockGatewayState,
-    media_dir: Path,
+    service: str,
+    data: dict[str, Any],
 ) -> None:
-    """If the Gateway does not support message, this is reported, not ignored."""
-    gateway_state.supports_image_message = False
-    image = media_dir / "snapshot.jpg"
-    image.write_bytes(JPEG)
-    with pytest.raises(HomeAssistantError) as exc_info:
-        await _call(hass, "send_image", {"who": "simon", "image_path": str(image), "message": "x"})
-    assert exc_info.value.translation_key == "message_not_supported"
+    """Image actions have no message field; text must go through send_text."""
+    with pytest.raises(vol.Invalid, match=r"line_oa\.send_text"):
+        await _call(hass, service, data)
+    assert gateway_state.requests == []
 
 
 async def test_send_image_errors(
@@ -527,7 +533,7 @@ async def test_send_screen_shot(
     result = await _call(
         hass,
         "send_screen_shot",
-        {"who": "simon", "camera_entity": "camera.front_door", "message": "門口偵測到有人"},
+        {"who": "simon", "camera_entity": "camera.front_door"},
         response=True,
     )
     assert result["status"] == "submitted"
@@ -536,7 +542,7 @@ async def test_send_screen_shot(
     assert request.image == JPEG
     assert request.image_content_type == "image/jpeg"
     assert request.image_filename == "front_door.jpg"
-    assert request.fields["message"] == "門口偵測到有人"
+    assert set(request.fields) == {"who", "request_id"}
 
 
 async def test_send_screen_shot_png(

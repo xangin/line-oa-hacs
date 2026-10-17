@@ -77,26 +77,18 @@ HACS 端**沒有**另外發明 API；對於契約未定義的部分，下表列�
 
 ---
 
-## 4. 🔴 圖片附加 `message` 的支援與部分成功
+## 4. ✅ 圖片不附加文字（已決定）
 
-**目前問題**：
-
-1. 契約要求「若 Gateway 尚未支援 message 不得默默忽略」，但沒有定義 Gateway 如何表達「不支援」。
-2. 圖片與文字在 LINE 端可能是兩則訊息；若圖片送出但文字失敗，契約沒有「部分成功」的表示方式。
+**決定**：`send_image` 與 `send_screen_shot` **不提供** `message` 欄位，圖片一律不附加文字；需要文字時由使用者另外呼叫 `line_oa.send_text`。
 
 **HACS 目前行為**：
 
-- Gateway 回 `MESSAGE_NOT_SUPPORTED`（或 `UNSUPPORTED_FIELD`）→ 回報「Gateway 不支援圖片附加文字」。
-- 只有在使用者有填 `message` 時才送出該 multipart 欄位。
-- 若 Gateway 直接忽略未知欄位並回 `submitted`，**HACS 無法偵測**。
+- 兩個圖片 Action 的 Schema 不接受 `message`，填了會在送出前直接報錯（提示改用 `send_text`）。
+- `POST /api/v1/messages/image` 的 multipart 只送 `who`、`image`、`request_id`。
 
-**需要 Gateway 修改**：
+**需要 Gateway 配合**：圖片端點只需處理單張圖片，不需要支援 `message`；也因此不會有「圖片送出但文字失敗」的部分成功情況。若 Gateway 收到未知欄位，建議回 400 `UNSUPPORTED_FIELD` 而不是忽略。
 
-- 不支援 `message` 時，必須在**發送任何內容之前**回 400 `MESSAGE_NOT_SUPPORTED`。
-- 圖片已送出但文字失敗 / 不明時，整體回 `status: unknown`（或新增明確的 `partial` 定義）——**不可**回 `failed`，否則使用者重試會重複送出圖片。
-- 建議在 `/api/v1/status` 加入 `capabilities`，例如 `{"image_message": true}`，讓 HACS 能在送出前檢查。
-
----
+**對 HACS 影響**：無。若未來要恢復圖片附加文字，需要先在契約中定義部分成功（圖片已送、文字失敗）的回應方式。
 
 ## 5. 🟠 `request_id` 的去重語意
 

@@ -37,7 +37,6 @@ from .api import (
     RateLimitedError,
     SendResult,
     SendUnknownError,
-    UnsupportedFieldError,
 )
 from .const import (
     ATTR_CAMERA_ENTITY,
@@ -80,13 +79,13 @@ def _message(value: Any) -> str:
     return text
 
 
-def _optional_message(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = cv.string(value)
-    if not text.strip():
-        return None
-    return _message(text)
+def _no_message(value: Any) -> Any:
+    """Images are sent without text; reject ``message`` with a clear hint."""
+    if isinstance(value, dict) and ATTR_MESSAGE in value:
+        raise vol.Invalid(
+            "message is not supported for images; send the text separately with line_oa.send_text"
+        )
+    return value
 
 
 SEND_TEXT_SCHEMA = vol.Schema(
@@ -95,20 +94,24 @@ SEND_TEXT_SCHEMA = vol.Schema(
         vol.Required(ATTR_MESSAGE): _message,
     }
 )
-SEND_IMAGE_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_WHO): single_who,
-        vol.Required(ATTR_IMAGE_PATH): vol.All(cv.string, str.strip, vol.Length(min=1)),
-        vol.Optional(ATTR_MESSAGE): _optional_message,
-    }
+SEND_IMAGE_SCHEMA = vol.All(
+    _no_message,
+    vol.Schema(
+        {
+            vol.Required(ATTR_WHO): single_who,
+            vol.Required(ATTR_IMAGE_PATH): vol.All(cv.string, str.strip, vol.Length(min=1)),
+        }
+    ),
 )
-SEND_SCREEN_SHOT_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_WHO): single_who,
-        # cv.string rejects lists, so exactly one camera entity is accepted.
-        vol.Required(ATTR_CAMERA_ENTITY): vol.All(cv.string, cv.entity_domain("camera")),
-        vol.Optional(ATTR_MESSAGE): _optional_message,
-    }
+SEND_SCREEN_SHOT_SCHEMA = vol.All(
+    _no_message,
+    vol.Schema(
+        {
+            vol.Required(ATTR_WHO): single_who,
+            # cv.string rejects lists, so exactly one camera entity is accepted.
+            vol.Required(ATTR_CAMERA_ENTITY): vol.All(cv.string, cv.entity_domain("camera")),
+        }
+    ),
 )
 
 
@@ -171,8 +174,6 @@ def _translate_error(
         return _error("rate_limited", retry_after=err.retry_after or "-")
     if isinstance(err, PayloadTooLargeError):
         return _error("gateway_payload_too_large")
-    if isinstance(err, UnsupportedFieldError):
-        return _error("message_not_supported", reason=_reason(err))
     if isinstance(err, GatewayUnavailableError):
         entry.async_create_task(hass, coordinator.async_request_refresh())
         return _error("gateway_unavailable")
@@ -231,7 +232,6 @@ async def _async_send_image(
     who: str,
     image: LoadedImage,
     *,
-    message: str | None,
     kind: str,
 ) -> ServiceResponse:
     client = entry.runtime_data.client
@@ -240,7 +240,7 @@ async def _async_send_image(
         entry,
         who,
         kind,
-        client.async_send_image(who, image.content, image.content_type, image.filename, message),
+        client.async_send_image(who, image.content, image.content_type, image.filename),
     )
 
 
@@ -265,18 +265,14 @@ def async_setup_services(hass: HomeAssistant) -> None:
         who: str = call.data[ATTR_WHO]
         await _async_check_alias(hass, entry, who)
         image = await async_load_local_image(hass, call.data[ATTR_IMAGE_PATH])
-        return await _async_send_image(
-            hass, entry, who, image, message=call.data.get(ATTR_MESSAGE), kind="image"
-        )
+        return await _async_send_image(hass, entry, who, image, kind="image")
 
     async def send_screen_shot(call: ServiceCall) -> ServiceResponse:
         entry = _get_entry(hass)
         who: str = call.data[ATTR_WHO]
         await _async_check_alias(hass, entry, who)
         image = await async_capture_camera_image(hass, call.data[ATTR_CAMERA_ENTITY])
-        return await _async_send_image(
-            hass, entry, who, image, message=call.data.get(ATTR_MESSAGE), kind="screen shot"
-        )
+        return await _async_send_image(hass, entry, who, image, kind="screen shot")
 
     for name, handler, schema in (
         (SERVICE_SEND_TEXT, send_text, SEND_TEXT_SCHEMA),

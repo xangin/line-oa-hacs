@@ -85,9 +85,9 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 | --- | --- | --- |
 | ![設定表單](docs/screenshots/01-config-flow-form.jpg) | ![API Key 錯誤](docs/screenshots/02-config-flow-invalid-api-key.jpg) | ![設定完成](docs/screenshots/03-config-flow-success.jpg) |
 
-| 自動化編輯器中的三個 Action | 攝影機截圖 Action 表單 | 攝影機選擇器 |
-| --- | --- | --- |
-| ![Action 清單](docs/screenshots/05-automation-action-picker.jpg) | ![表單](docs/screenshots/06-send-screen-shot-form.jpg) | ![攝影機選擇器](docs/screenshots/07-camera-entity-selector.jpg) |
+| 自動化編輯器中的三個 Action |
+| --- |
+| ![Action 清單](docs/screenshots/05-automation-action-picker.jpg) |
 
 ### 重新設定（Reconfigure）
 
@@ -136,7 +136,8 @@ actions:
 | --- | --- | --- |
 | `who` | ✔ | 接收者別名 |
 | `image_path` | ✔ | **Home Assistant 系統上**的圖片絕對路徑（不是 Gateway LXC 的路徑） |
-| `message` |  | 附加文字 |
+
+圖片**不附加文字**，沒有 `message` 欄位（填了會直接報錯）。需要說明文字時，請另外用 `line_oa.send_text`：
 
 ```yaml
 actions:
@@ -152,6 +153,9 @@ actions:
     data:
       who: simon
       image_path: "/media/snapshot.jpg"
+  - action: line_oa.send_text
+    data:
+      who: simon
       message: "設備檢查結果"
 ```
 
@@ -167,7 +171,8 @@ actions:
 | --- | --- | --- |
 | `who` | ✔ | 接收者別名 |
 | `camera_entity` | ✔ | 攝影機實體（圖形化編輯器中為攝影機選擇器） |
-| `message` |  | 附加文字 |
+
+和 `send_image` 一樣**不附加文字**；需要文字請另外用 `line_oa.send_text`：
 
 ```yaml
 actions:
@@ -175,6 +180,9 @@ actions:
     data:
       who: simon
       camera_entity: camera.front_door
+  - action: line_oa.send_text
+    data:
+      who: simon
       message: "門口有人"
 ```
 
@@ -248,7 +256,7 @@ actions:
 | 不允許讀取「/path」 | 圖片需放在 `/media`（或 `allowlist_external_dirs` 內），且不能是隱藏檔或敏感檔 |
 | 不是 JPEG 或 PNG 圖片 / 超過 10 MiB | 轉檔或縮小圖片 |
 | 攝影機無法提供目前的靜態畫面 | 攝影機離線、關閉或不支援靜態畫面；請先在 HA 攝影機畫面確認能看到即時影像 |
-| Gateway 不支援圖片附加文字 | Gateway 版本尚未支援 `message` 欄位；移除 `message` 或升級 Gateway |
+| message is not supported for images | `send_image` / `send_screen_shot` 不接受 `message`；文字請另外用 `line_oa.send_text` |
 | 發送結果不明 | 見上一節；**不要立即重試** |
 
 需要更多診斷資訊時，可在 `configuration.yaml` 暫時開啟除錯日誌（日誌不會包含 API Key 與訊息內容）：
@@ -289,7 +297,7 @@ logger:
 | GET | `/api/v1/status` | 狀態，需 Bearer API Key |
 | GET | `/api/v1/aliases` | 已設定的別名 |
 | POST | `/api/v1/messages/text` | JSON：`who`、`message`、`request_id` |
-| POST | `/api/v1/messages/image` | multipart：`who`、`image`、`message`（選填）、`request_id` |
+| POST | `/api/v1/messages/image` | multipart：`who`、`image`、`request_id`（不含文字） |
 
 ---
 

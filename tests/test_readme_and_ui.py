@@ -97,14 +97,14 @@ async def test_actions_visible_in_ui_editor(
 
     image = descriptions["send_image"]["fields"]
     assert "text" in image["image_path"]["selector"]
-    assert image["message"].get("required", False) is False
+    assert set(image) == {"who", "image_path"}
 
     shot = descriptions["send_screen_shot"]["fields"]
     entity_selector = shot["camera_entity"]["selector"]["entity"]
     assert entity_selector["filter"][0]["domain"] == ["camera"]
     assert entity_selector.get("multiple", False) is False
     assert "text" in shot["who"]["selector"]
-    assert shot["message"].get("required", False) is False
+    assert set(shot) == {"who", "camera_entity"}
 
     # Names/descriptions come from the translation files (checked below).
     for name in descriptions:

@@ -99,7 +99,7 @@
     },
     "send_image": {
       "name": "Send image",
-      "description": "Sends a JPEG or PNG image file from the Home Assistant file system (for example /media) to one LINE recipient alias.",
+      "description": "Sends a JPEG or PNG image file from the Home Assistant file system (for example /media) to one LINE recipient alias. Images are sent without text; use Send text for a message.",
       "fields": {
         "who": {
           "name": "Recipient",
@@ -108,16 +108,12 @@
         "image_path": {
           "name": "Image path",
           "description": "Absolute path of a JPEG/PNG file on the Home Assistant system (max 10 MiB). Must be inside an allowed directory such as /media."
-        },
-        "message": {
-          "name": "Message",
-          "description": "Optional text sent with the image."
         }
       }
     },
     "send_screen_shot": {
       "name": "Send camera screenshot",
-      "description": "Takes a fresh still image from a camera entity and sends it to one LINE recipient alias. The image is kept in memory only.",
+      "description": "Takes a fresh still image from a camera entity and sends it to one LINE recipient alias. The image is kept in memory only and is sent without text.",
       "fields": {
         "who": {
           "name": "Recipient",
@@ -126,10 +122,6 @@
         "camera_entity": {
           "name": "Camera",
           "description": "Camera entity to capture."
-        },
-        "message": {
-          "name": "Message",
-          "description": "Optional text sent with the screenshot."
         }
       }
     }
@@ -167,9 +159,6 @@
     },
     "gateway_payload_too_large": {
       "message": "The LINE OA Gateway rejected the image as too large."
-    },
-    "message_not_supported": {
-      "message": "The LINE OA Gateway does not support sending a message together with an image ({reason}). Nothing was sent. Remove the message field or upgrade the Gateway."
     },
     "gateway_unavailable": {
       "message": "The LINE OA Gateway is temporarily unavailable. The message was not sent."

@@ -156,7 +156,7 @@ class PayloadTooLargeError(GatewayApiError):
 
 
 class UnsupportedFieldError(GatewayApiError):
-    """The Gateway does not support a submitted field (e.g. image ``message``)."""
+    """The Gateway does not support a submitted field."""
 
 
 class InvalidRequestError(GatewayApiError):
@@ -457,15 +457,16 @@ class LineOAGatewayClient:
         image: bytes,
         content_type: str,
         filename: str,
-        message: str | None = None,
     ) -> SendResult:
-        """Upload an image via ``POST /api/v1/messages/image`` (multipart)."""
+        """Upload an image via ``POST /api/v1/messages/image`` (multipart).
+
+        Images are sent without accompanying text: the form contains only
+        ``who``, ``image`` and ``request_id``.
+        """
         request_id = str(uuid.uuid4())
         form = aiohttp.FormData()
         form.add_field("who", who)
         form.add_field("image", image, filename=filename, content_type=content_type)
-        if message:
-            form.add_field("message", message)
         form.add_field("request_id", request_id)
         return await self._post_message(
             API_MESSAGES_IMAGE, request_id, IMAGE_POST_TIMEOUT, form=form
