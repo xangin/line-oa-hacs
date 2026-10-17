@@ -1,4 +1,6 @@
-# 錯誤排除
+# 錯誤排除（開發者參考）
+
+> 開發用資料。一般使用者請看 [README 的錯誤排除](../README.md#錯誤排除)。
 
 ## 先分清楚是哪一種問題
 
@@ -23,10 +25,10 @@
 | 訊息 | 原因 / 處理 |
 | --- | --- |
 | 沒有出現「已發現 LINE OA」 | Add-on 未啟動、HA 不是 HA OS / Supervised、或已經設定 LINE OA（只會連接一台） |
-| 找不到執行中的 LINE OA Add-on | 先安裝並啟動 Add-on；或改選外部 Gateway |
+| 找不到執行中的 LINE OA Add-on | 先安裝並啟動 Add-on |
 | 此安裝方式沒有 Supervisor | HA Container / Core 無法使用 Add-on |
 | 無法驗證 Add-on 的探索資訊 | 探索內容不符合規則（主機名稱、埠、instance_id）；檢查 Add-on 版本 |
-| 你已選擇保留目前的 Gateway | 之前選了「保留目前連線」；要切換請用「重新設定 → Home Assistant Add-on」 |
+| 你已選擇保留目前的 Gateway | 之前選了「保留目前連線」；要切換請用「重新設定 → LINE OA Add-on」 |
 
 ## 配對
 
@@ -45,7 +47,7 @@
 
 - 切換失敗：原本的連線完全不變。
 - 切換後別名不存在：別名是各 Gateway 自己的資料，請在新 Gateway 內設定。
-- 想切回：重新設定 → 外部 Gateway（會帶入原網址）。
+- 想切回外部 Gateway（實驗性）：見 [external-connection.md](external-connection.md)。
 
 ## 診斷資料
 

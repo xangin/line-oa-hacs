@@ -160,15 +160,6 @@ HACS 目前沒有「略過憑證驗證」選項。若 Gateway 預設使用自簽
 
 ---
 
-## 12. 🟡 Gateway 自動發現（mDNS 廣播）
+## 12. ⚪ 外部 Gateway 自動發現（已移除）
 
-**HACS 目前行為**：manifest 宣告 zeroconf 類型 `_line-oa-gw._tcp.local.`。HA 收到廣播後顯示「已發現」，網址由廣播的 IP 與埠組成（未提供埠時預設 8790），使用者只需輸入 API Key。手動新增時另會探測 HA 本機 IP 的 8790 埠並自動填入網址。
-
-**需要 Gateway 修改（建議）**：
-
-- 由 Gateway 自行（或在 LXC 以 Avahi）廣播 `_line-oa-gw._tcp`，埠為實際服務埠。
-- TXT 記錄建議包含 `instance_id`（與 `/api/v1/status` 相同）、`version`；如在反向代理後方，加上 `scheme`、`path`。
-- `GET /api/v1/health` 建議不需 API Key（HACS 用它在未取得 API Key 前確認對方是 Gateway；回 401/403 也會被視為 Gateway 存在）。
-
-**對 HACS 影響**：Gateway 不廣播時，「已發現」不會出現，但手動新增仍可使用（Gateway 在 HA 本機時網址會自動填入）。API Key 不會透過廣播傳送，仍需使用者輸入。
-
+HACS 已不再宣告 zeroconf，也不探測本機 8790 埠：新增整合一律透過 LINE OA Add-on，外部 Gateway 只在「重新設定」中以實驗性功能提供。Gateway 不需要廣播 mDNS。

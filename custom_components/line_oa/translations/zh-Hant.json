@@ -2,36 +2,6 @@
   "config": {
     "flow_title": "LINE OA Gateway（{name}）",
     "step": {
-      "user": {
-        "title": "連線方式",
-        "description": "選擇 Home Assistant 連接 LINE OA Gateway 的方式。兩種方式使用同一個整合、相同的動作與實體。",
-        "menu_options": {
-          "addon": "Home Assistant Add-on（自動配對）",
-          "external": "外部 Gateway（LXC / Docker / Linux）"
-        }
-      },
-      "external": {
-        "title": "外部 Gateway",
-        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。若 Gateway 就在這台 Home Assistant 主機上（埠 8790），網址會自動填好。LINE 登入由 Gateway Web UI 管理。",
-        "data": {
-          "url": "Gateway 網址",
-          "api_key": "API Key"
-        },
-        "data_description": {
-          "url": "Gateway 基本網址，例如 http://192.168.1.50:8790",
-          "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
-        }
-      },
-      "discovery_confirm": {
-        "title": "發現 LINE OA Gateway",
-        "description": "在區網中發現 LINE OA Gateway：{url}。請輸入在 Gateway Web UI 建立的 API Key 即可完成設定。",
-        "data": {
-          "api_key": "API Key"
-        },
-        "data_description": {
-          "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
-        }
-      },
       "hassio_confirm": {
         "title": "確認連線 LINE OA Add-on",
         "description": "是否將 LINE OA Add-on「{addon}」連接到 Home Assistant？\n\nHome Assistant 會與 Add-on 安全配對並自動取得專用 API Key，不需要輸入 IP、埠或 API Key，也不會發送任何 LINE 訊息。"
@@ -52,13 +22,13 @@
         "title": "重新設定 LINE OA",
         "description": "請選擇要變更的項目。",
         "menu_options": {
-          "reconfigure_external": "外部 Gateway（網址 / API Key）",
-          "reconfigure_addon": "Home Assistant Add-on（重新配對 / 切換至 Add-on）"
+          "reconfigure_external": "外部 Gateway（實驗性）",
+          "reconfigure_addon": "LINE OA Add-on（重新配對 / 切換回 Add-on）"
         }
       },
       "reconfigure_external": {
-        "title": "外部 Gateway",
-        "description": "變更 Gateway 網址或 API Key。API Key 留空表示沿用目前的 Key（從 Add-on 切換過來時必填）。",
+        "title": "外部 Gateway（實驗性）",
+        "description": "實驗性功能：改用 LXC / Docker / Linux 上的外部 Gateway。請輸入 Gateway 網址與 API Key（從 Add-on 切換過來時 API Key 必填）。實體與自動化會保留，可隨時切回 Add-on。",
         "data": {
           "url": "Gateway 網址",
           "api_key": "API Key"
@@ -107,15 +77,15 @@
     "abort": {
       "already_configured": "此 Gateway 已經設定過。",
       "already_in_progress": "設定流程已在進行中。",
-      "single_instance_allowed": "LINE OA 已經連接一個 Gateway。要切換 Gateway 請使用「重新設定」。",
+      "single_instance_allowed": "LINE OA 已經設定完成。",
       "reconfigure_successful": "重新設定成功。",
       "reauth_successful": "配對成功。",
       "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致）。",
       "cannot_connect": "Gateway 無法連線。",
       "invalid_discovery_info": "無法驗證 Gateway 的探索資訊。",
       "incompatible_api": "Add-on 的 Gateway API 版本不相容。",
-      "addon_not_supported": "此 Home Assistant 安裝方式沒有 Supervisor，無法使用 Add-on。請改選「外部 Gateway」。",
-      "addon_not_found": "找不到執行中的 LINE OA Add-on。請先在「設定 → 附加元件」安裝並啟動 LINE OA Add-on，等待出現「已發現 LINE OA」，或改選「外部 Gateway」。",
+      "addon_not_supported": "LINE OA 需要 LINE OA Add-on，但此 Home Assistant 安裝方式沒有 Supervisor（Add-on）。請使用 Home Assistant OS。",
+      "addon_not_found": "找不到執行中的 LINE OA Add-on。請先在「設定 → 應用程式／附加元件 → 商店」加入儲存庫 https://github.com/xangin/line-oa-ha-addon，安裝並啟動 LINE OA Add-on，再回來新增整合。",
       "addon_declined": "你已選擇保留目前的 Gateway。",
       "kept_current": "已保留目前連線。之後可透過「重新設定」切換至 Add-on。",
       "migration_successful": "已遷移至 Add-on，實體與自動化皆已保留。"

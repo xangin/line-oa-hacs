@@ -445,11 +445,10 @@ async def test_pairing_http_exchange_rejects_bad_responses(
 # --------------------------------------------------------------------------
 
 
-async def test_user_menu_addon_uses_announced_app(hass: HomeAssistant, app: AppEnv) -> None:
+async def test_add_integration_goes_straight_to_addon(hass: HomeAssistant, app: AppEnv) -> None:
+    """ "Add integration" uses the announced add-on directly (no mode menu)."""
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"next_step_id": "addon"}
-    )
+    assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "hassio_confirm"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     await hass.async_block_till_done()
@@ -457,21 +456,15 @@ async def test_user_menu_addon_uses_announced_app(hass: HomeAssistant, app: AppE
     assert result["data"]["connection_mode"] == "addon"
 
 
-async def test_user_menu_addon_not_found_is_honest(hass: HomeAssistant, app: AppEnv) -> None:
+async def test_add_integration_without_addon_is_honest(hass: HomeAssistant, app: AppEnv) -> None:
     app.announced = False
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"next_step_id": "addon"}
-    )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "addon_not_found"
 
 
-async def test_user_menu_addon_without_supervisor(hass: HomeAssistant) -> None:
+async def test_add_integration_without_supervisor(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"next_step_id": "addon"}
-    )
     assert result["reason"] == "addon_not_supported"
 
 

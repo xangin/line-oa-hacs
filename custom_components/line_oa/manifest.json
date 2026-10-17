@@ -14,8 +14,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/xangin/line-oa-hacs/issues",
   "requirements": [],
-  "version": "0.2.0",
-  "zeroconf": [
-    "_line-oa-gw._tcp.local."
-  ]
+  "version": "0.3.0"
 }

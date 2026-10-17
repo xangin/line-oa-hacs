@@ -3,12 +3,11 @@
 One integration, two connection modes that share the same API client,
 actions and entities:
 
-* ``external``: a Gateway on Ubuntu LXC / Docker / Linux. The user enters the
-  Gateway URL and an API key (the URL can be pre-filled by zeroconf discovery
-  or by probing this Home Assistant host).
-* ``addon``: the Gateway app (add-on) announces itself via Supervisor
-  discovery. After the user confirms, a one-time bootstrap token is exchanged
-  for a dedicated API key. Nothing is created from discovery alone.
+* ``addon`` (required for setup): the LINE OA add-on announces itself via
+  Supervisor discovery. After the user confirms, a one-time bootstrap token is
+  exchanged for a dedicated API key. Nothing is created from discovery alone.
+* ``external`` (experimental): a Gateway on Ubuntu LXC / Docker / Linux with
+  URL and API key. Only offered in Reconfigure of an existing entry.
 
 Only one active Gateway is supported, because the actions have no Gateway
 selector. Switching between modes is always an explicit user choice.
@@ -16,12 +15,10 @@ selector. Switching between modes is always an explicit user choice.
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
 from typing import Any
 
 import probatio as vol
-from yarl import URL
 
 from homeassistant.config_entries import (
     SOURCE_IGNORE,
@@ -33,14 +30,12 @@ from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.hassio import is_hassio
-from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
 )
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .addon import (
     AddonDiscovery,
@@ -71,10 +66,8 @@ from .const import (
     CONF_ENTITY_ID_BASE,
     CONF_INSTANCE_ID,
     CONF_PREVIOUS_CONNECTION,
-    DEFAULT_GATEWAY_PORT,
     DEFAULT_NAME,
     DOMAIN,
-    LOCAL_PROBE_TIMEOUT,
     LOGGER,
     MODE_ADDON,
     MODE_EXTERNAL,
@@ -151,39 +144,6 @@ async def validate_gateway(
     return base_url, status
 
 
-async def async_gateway_answers(hass: HomeAssistant, url: str) -> bool:
-    """Return True if a LINE OA Gateway answers ``/api/v1/health`` at ``url``.
-
-    No API key is sent; a 401/403 still proves a Gateway is listening.
-    """
-    client = LineOAGatewayClient(async_get_clientsession(hass), url, "")
-    try:
-        async with asyncio.timeout(LOCAL_PROBE_TIMEOUT):
-            await client.async_health()
-    except GatewayAuthError:
-        return True
-    except LineOAError, TimeoutError:
-        return False
-    return True
-
-
-def discovery_url(discovery_info: ZeroconfServiceInfo) -> str:
-    """Build the Gateway base URL from a zeroconf record.
-
-    Optional TXT records: ``scheme`` (``http``/``https``) and ``path``
-    (base path behind a reverse proxy).
-    """
-    props = discovery_info.properties
-    scheme = "https" if str(props.get("scheme", "")).lower() == "https" else "http"
-    url = URL.build(
-        scheme=scheme,
-        host=discovery_info.host,
-        port=discovery_info.port or DEFAULT_GATEWAY_PORT,
-        path="/" + str(props.get("path") or "").strip("/"),
-    )
-    return normalize_base_url(str(url))
-
-
 _VALIDATION_ERRORS: dict[type[Exception], str] = {
     InvalidUrl: "invalid_url",
     CannotConnect: "cannot_connect",
@@ -226,7 +186,6 @@ class LineOAConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the flow."""
-        self._discovered_url: str | None = None
         self._addon: AddonDiscovery | None = None
 
     # ------------------------------------------------------------------ helpers
@@ -308,28 +267,17 @@ class LineOAConfigFlow(ConfigFlow, domain=DOMAIN):
             status,
         )
 
-    async def _async_probe_local_gateway(self) -> str | None:
-        """Look for a Gateway on this Home Assistant host's IP, default port."""
-        try:
-            internal_url = get_url(self.hass, allow_external=False, allow_cloud=False)
-        except NoURLAvailableError:
-            return None
-        host = URL(internal_url).host
-        if not host:
-            return None
-        candidate = str(URL.build(scheme="http", host=host, port=DEFAULT_GATEWAY_PORT))
-        if await async_gateway_answers(self.hass, candidate):
-            LOGGER.debug("Found a LINE OA Gateway on this host at %s", candidate)
-            return candidate
-        return None
-
     # ------------------------------------------------------------- user setup
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Ask how to connect: Home Assistant app or external Gateway."""
+        """Set up LINE OA with the LINE OA add-on (required).
+
+        An external Gateway is an experimental option that is only offered in
+        Reconfigure of an existing entry.
+        """
         if self._active_entries():
             return self.async_abort(reason="single_instance_allowed")
-        return self.async_show_menu(step_id="user", menu_options=["addon", "external"])
+        return await self.async_step_addon()
 
     async def async_step_addon(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Use a Gateway app that Supervisor has announced; never pretend one exists."""
@@ -342,103 +290,6 @@ class LineOAConfigFlow(ConfigFlow, domain=DOMAIN):
         if info is None:
             return self.async_abort(reason="addon_not_found")
         return await self.async_step_hassio(info)
-
-    async def async_step_external(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Connect to an external Gateway with URL and API key."""
-        if self._active_entries():
-            return self.async_abort(reason="single_instance_allowed")
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            result = await self._async_validate(
-                user_input[CONF_URL], user_input[CONF_API_KEY], errors
-            )
-            if result is not None:
-                base_url, status = result
-                await self.async_set_unique_id(status.instance_id)
-                self._abort_if_unique_id_configured()
-                return self._create_gateway_entry(
-                    {
-                        CONF_URL: base_url,
-                        CONF_API_KEY: user_input[CONF_API_KEY],
-                        CONF_CONNECTION_MODE: MODE_EXTERNAL,
-                        CONF_INSTANCE_ID: status.instance_id,
-                    }
-                )
-
-        suggested: Mapping[str, Any] | None = user_input
-        if user_input is None and (local_url := await self._async_probe_local_gateway()):
-            # Pre-fill the URL of a Gateway found on this HA host.
-            suggested = {CONF_URL: local_url}
-
-        return self.async_show_form(
-            step_id="external",
-            data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(
-                    {
-                        vol.Required(CONF_URL): URL_SELECTOR,
-                        vol.Required(CONF_API_KEY): PASSWORD_SELECTOR,
-                    }
-                ),
-                suggested,
-            ),
-            errors=errors,
-        )
-
-    # ------------------------------------------------- zeroconf (external)
-
-    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
-        """Handle an external Gateway announced via mDNS (``_line-oa-gw._tcp``)."""
-        if self._active_entries():
-            return self.async_abort(reason="single_instance_allowed")
-        try:
-            url = discovery_url(discovery_info)
-        except ValueError:
-            return self.async_abort(reason="invalid_discovery_info")
-
-        if instance_id := str(discovery_info.properties.get("instance_id") or "").strip():
-            await self.async_set_unique_id(instance_id)
-            self._abort_if_unique_id_configured()
-        self._async_abort_entries_match({CONF_URL: url})
-
-        if not await async_gateway_answers(self.hass, url):
-            return self.async_abort(reason="cannot_connect")
-
-        self._discovered_url = url
-        self.context["title_placeholders"] = {"name": URL(url).authority}
-        return await self.async_step_discovery_confirm()
-
-    async def async_step_discovery_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Ask only for the API key of a discovered external Gateway."""
-        if self._discovered_url is None:
-            return self.async_abort(reason="invalid_discovery_info")
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            result = await self._async_validate(
-                self._discovered_url, user_input[CONF_API_KEY], errors
-            )
-            if result is not None:
-                base_url, status = result
-                await self.async_set_unique_id(status.instance_id, raise_on_progress=False)
-                self._abort_if_unique_id_configured()
-                return self._create_gateway_entry(
-                    {
-                        CONF_URL: base_url,
-                        CONF_API_KEY: user_input[CONF_API_KEY],
-                        CONF_CONNECTION_MODE: MODE_EXTERNAL,
-                        CONF_INSTANCE_ID: status.instance_id,
-                    }
-                )
-
-        return self.async_show_form(
-            step_id="discovery_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_API_KEY): PASSWORD_SELECTOR}),
-            description_placeholders={"url": self._discovered_url},
-            errors=errors,
-        )
 
     # ------------------------------------------------ Supervisor discovery
 

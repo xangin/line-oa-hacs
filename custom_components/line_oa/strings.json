@@ -2,36 +2,6 @@
   "config": {
     "flow_title": "LINE OA Gateway ({name})",
     "step": {
-      "user": {
-        "title": "Connection method",
-        "description": "Choose how Home Assistant connects to the LINE OA Gateway. Both use the same integration, actions and entities.",
-        "menu_options": {
-          "addon": "Home Assistant add-on (automatic pairing)",
-          "external": "External Gateway (LXC / Docker / Linux)"
-        }
-      },
-      "external": {
-        "title": "External Gateway",
-        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. If a Gateway runs on this Home Assistant host (port 8790), the URL is filled in automatically. LINE login itself is managed in the Gateway Web UI.",
-        "data": {
-          "url": "Gateway URL",
-          "api_key": "API key"
-        },
-        "data_description": {
-          "url": "Base URL of the Gateway, for example http://192.168.1.50:8790",
-          "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
-        }
-      },
-      "discovery_confirm": {
-        "title": "LINE OA Gateway found",
-        "description": "A LINE OA Gateway was found on your network at {url}. Enter the API key created in the Gateway Web UI to finish setup.",
-        "data": {
-          "api_key": "API key"
-        },
-        "data_description": {
-          "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
-        }
-      },
       "hassio_confirm": {
         "title": "Connect the LINE OA add-on",
         "description": "Connect the add-on \"{addon}\" to Home Assistant?\n\nHome Assistant will pair with the add-on securely and receive its own API key. No IP address, port or API key needs to be entered. No LINE message is sent."
@@ -52,13 +22,13 @@
         "title": "Reconfigure LINE OA",
         "description": "Choose what to change.",
         "menu_options": {
-          "reconfigure_external": "External Gateway (URL / API key)",
-          "reconfigure_addon": "Home Assistant add-on (pair again / switch to add-on)"
+          "reconfigure_external": "External Gateway (experimental)",
+          "reconfigure_addon": "LINE OA add-on (pair again / switch back to the add-on)"
         }
       },
       "reconfigure_external": {
-        "title": "External Gateway",
-        "description": "Change the Gateway URL or API key. Leave the API key empty to keep the current one (required when switching from the add-on).",
+        "title": "External Gateway (experimental)",
+        "description": "Experimental: use an external Gateway on LXC / Docker / Linux. Enter the Gateway URL and API key (required when switching from the add-on). Entities and automations are kept; you can switch back to the add-on at any time.",
         "data": {
           "url": "Gateway URL",
           "api_key": "API key"
@@ -107,15 +77,15 @@
     "abort": {
       "already_configured": "This Gateway is already configured.",
       "already_in_progress": "Setup is already in progress.",
-      "single_instance_allowed": "LINE OA is already connected to a Gateway. Use Reconfigure to switch Gateway.",
+      "single_instance_allowed": "LINE OA is already set up.",
       "reconfigure_successful": "Re-configuration was successful.",
       "reauth_successful": "Pairing / re-authentication was successful.",
       "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match).",
       "cannot_connect": "The Gateway does not respond.",
       "invalid_discovery_info": "The Gateway announcement could not be verified.",
       "incompatible_api": "The add-on uses an unsupported Gateway API version.",
-      "addon_not_supported": "This Home Assistant installation has no Supervisor, so add-ons are not available. Choose External Gateway instead.",
-      "addon_not_found": "No running LINE OA add-on was found. Install and start the LINE OA add-on (Settings → Add-ons), wait for \"Discovered: LINE OA\", or choose External Gateway.",
+      "addon_not_supported": "LINE OA requires the LINE OA add-on, but this Home Assistant installation has no Supervisor (add-ons). Use Home Assistant OS.",
+      "addon_not_found": "No running LINE OA add-on was found. Add the repository https://github.com/xangin/line-oa-ha-addon in Settings → Add-ons → Store, install and start the LINE OA add-on, then add the integration again.",
       "addon_declined": "You chose to keep the current Gateway for this add-on.",
       "kept_current": "The current connection is kept. You can switch later via Reconfigure.",
       "migration_successful": "LINE OA now uses the add-on. Entities and automations were kept."

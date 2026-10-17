@@ -1,8 +1,14 @@
-"""Tests for the LINE OA config, reconfigure and reauth flows."""
+"""Config flow tests: add-on-only setup and the experimental external Gateway.
+
+Setting up LINE OA always uses the LINE OA add-on (see test_addon.py). An
+external Gateway is an experimental option available only in Reconfigure of an
+existing entry; its validation is tested here through that path.
+"""
 
 from __future__ import annotations
 
-from ipaddress import ip_address
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 from aiohttp.test_utils import TestServer
@@ -10,69 +16,56 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.line_oa.const import DOMAIN
-from homeassistant.config_entries import SOURCE_USER, SOURCE_ZEROCONF
+from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType, UnknownFlow
-from homeassistant.helpers.network import NoURLAvailableError
-from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+from homeassistant.data_entry_flow import FlowResultType
 
 from .mock_gateway import MockGatewayState, create_app
 
+MANIFEST = Path(__file__).parent.parent / "custom_components" / "line_oa" / "manifest.json"
 
-async def _open_external(hass: HomeAssistant) -> dict:
-    """Open "Add integration", then choose the external Gateway option."""
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    assert result["type"] is FlowResultType.MENU
-    assert result["step_id"] == "user"
-    assert result["menu_options"] == ["addon", "external"]
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"next_step_id": "external"}
-    )
+
+async def _open_external(hass: HomeAssistant, entry: MockConfigEntry) -> dict:
+    """Open Reconfigure; without Supervisor it goes straight to the external form."""
+    result = await entry.start_reconfigure_flow(hass)
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "external"
+    assert result["step_id"] == "reconfigure_external"
     return result
 
 
-async def _start(hass: HomeAssistant) -> str:
-    return (await _open_external(hass))["flow_id"]
+async def test_add_integration_requires_addon_supervisor(hass: HomeAssistant) -> None:
+    """Without Supervisor there is no setup path (the add-on is required)."""
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "addon_not_supported"
 
 
-async def test_user_flow_creates_entry(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
+async def test_add_integration_never_offers_external(hass: HomeAssistant) -> None:
+    """The add flow has no connection-mode menu and no external form."""
+    with (
+        patch("custom_components.line_oa.config_flow.is_hassio", return_value=True),
+        patch("custom_components.line_oa.config_flow.async_find_discovery", return_value=None),
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "addon_not_found"
+
+
+def test_no_external_discovery_in_manifest() -> None:
+    """External Gateways are not auto-discovered (no zeroconf card)."""
+    manifest = json.loads(MANIFEST.read_text())
+    assert "zeroconf" not in manifest
+
+
+async def test_duplicate_gateway_is_rejected(
+    hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """Health, API key, status and instance_id are checked; then an entry is created."""
-    flow_id = await _start(hass)
-    result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url + "/", CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "LINE OA"
-    assert result["data"] == {
-        CONF_URL: gateway_url,
-        CONF_API_KEY: gateway_state.api_key,
-        "connection_mode": "external",
-        "instance_id": gateway_state.instance_id,
-    }
-    assert result["result"].unique_id == gateway_state.instance_id
-    assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
-
-
-async def test_user_flow_with_expired_line_session_still_succeeds(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
-) -> None:
-    """An expired LINE session is not a Gateway configuration error."""
-    gateway_state.line_logged_in = False
-    gateway_state.session_status = "expired"
-    flow_id = await _start(hass)
-    result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert hass.states.get("binary_sensor.line_oa_logged_in").state == "off"
-    assert hass.states.get("sensor.line_oa_session_status").state == "expired"
+    """Only one active Gateway entry is allowed."""
+    config_entry.add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "single_instance_allowed"
 
 
 @pytest.mark.parametrize(
@@ -85,129 +78,103 @@ async def test_user_flow_with_expired_line_session_still_succeeds(
         "http://192.168.1.50:8787/?x=1",
     ],
 )
-async def test_user_flow_invalid_url(hass: HomeAssistant, url: str) -> None:
-    """Malformed URLs are rejected before any request."""
-    flow_id = await _start(hass)
+async def test_external_invalid_url(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, url: str
+) -> None:
+    result = await _open_external(hass, setup_integration)
     result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: url, CONF_API_KEY: "key"}
+        result["flow_id"], {CONF_URL: url, CONF_API_KEY: "key"}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {CONF_URL: "invalid_url"}
 
 
-async def test_user_flow_cannot_connect_then_recover(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
+async def test_external_health_error_is_cannot_connect(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
 ) -> None:
-    """An unreachable Gateway shows cannot_connect; the user can retry."""
-    flow_id = await _start(hass)
-    result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: "http://127.0.0.1:9", CONF_API_KEY: gateway_state.api_key}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "cannot_connect"}
-
-    result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-
-
-async def test_user_flow_health_error_is_cannot_connect(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
-) -> None:
-    """A failing health endpoint is reported as cannot_connect."""
+    result = await _open_external(hass, setup_integration)
     gateway_state.health_status = 500
-    flow_id = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+        result["flow_id"], {CONF_URL: gateway_url}
     )
     assert result["errors"] == {"base": "cannot_connect"}
 
 
-async def test_user_flow_invalid_api_key(hass: HomeAssistant, gateway_url: str) -> None:
-    """A wrong API key is reported as invalid_auth."""
-    flow_id = await _start(hass)
+async def test_external_invalid_api_key(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, gateway_url: str
+) -> None:
+    result = await _open_external(hass, setup_integration)
     result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: "wrong"}
+        result["flow_id"], {CONF_URL: gateway_url, CONF_API_KEY: "wrong"}
     )
-    assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
 
 
-async def test_user_flow_missing_instance_id(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
+async def test_external_missing_instance_id(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
 ) -> None:
-    """A status without instance_id cannot be used as a stable unique ID."""
+    result = await _open_external(hass, setup_integration)
     gateway_state.status_override = (200, {"gateway_status": "online"})
-    flow_id = await _start(hass)
     result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+        result["flow_id"], {CONF_URL: gateway_url}
     )
     assert result["errors"] == {"base": "invalid_response"}
 
 
-async def test_user_flow_unexpected_exception(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
+async def test_external_unexpected_exception(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, gateway_url: str
 ) -> None:
-    """Unexpected errors are reported as unknown."""
-    flow_id = await _start(hass)
+    result = await _open_external(hass, setup_integration)
     with patch("custom_components.line_oa.config_flow.validate_gateway", side_effect=RuntimeError):
         result = await hass.config_entries.flow.async_configure(
-            flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+            result["flow_id"], {CONF_URL: gateway_url}
         )
     assert result["errors"] == {"base": "unknown"}
 
 
-async def test_duplicate_gateway_is_rejected(
-    hass: HomeAssistant, config_entry: MockConfigEntry
+async def test_external_expired_line_session_is_not_a_config_error(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
 ) -> None:
-    """Only one Gateway entry is allowed (single_config_entry)."""
-    config_entry.add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "single_instance_allowed"
-
-
-async def test_same_gateway_in_parallel_flow_is_already_configured(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
-) -> None:
-    """The same Gateway (identified by instance_id, not IP) cannot be added twice."""
-    first = await _start(hass)
-    second = await _start(hass)
+    gateway_state.line_logged_in = False
+    gateway_state.session_status = "expired"
+    result = await _open_external(hass, setup_integration)
     result = await hass.config_entries.flow.async_configure(
-        first, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+        result["flow_id"], {CONF_URL: gateway_url}
     )
     await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-
-    # HA aborts the other in-progress flow as soon as the single entry exists.
-    with pytest.raises(UnknownFlow):
-        await hass.config_entries.flow.async_configure(
-            second, {CONF_URL: gateway_url + "/", CONF_API_KEY: gateway_state.api_key}
-        )
-    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+    assert result["reason"] == "reconfigure_successful"
+    assert hass.states.get("binary_sensor.line_oa_logged_in").state == "off"
 
 
-async def test_unique_id_check_uses_instance_id(
-    hass: HomeAssistant, gateway_url: str, gateway_state: MockGatewayState
+@pytest.mark.parametrize(("version", "error"), [(None, None), (1, None), (2, "incompatible_api")])
+async def test_external_gateway_api_version(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
+    version: int | None,
+    error: str | None,
 ) -> None:
-    """The unique-ID check aborts with already_configured for the same instance_id.
-
-    single_config_entry normally stops a second flow earlier; this exercises the
-    instance_id check itself by bypassing that guard.
-    """
-    MockConfigEntry(domain=DOMAIN, unique_id=gateway_state.instance_id, data={}).add_to_hass(hass)
-    with patch(
-        "custom_components.line_oa.config_flow.LineOAConfigFlow._async_current_entries",
-        return_value=[],
-    ):
-        flow_id = await _start(hass)
-        result = await hass.config_entries.flow.async_configure(
-            flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
-        )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "already_configured"
+    """Older LXC Gateways (no api_version) and v1 work; other versions are refused."""
+    gateway_state.api_version = version
+    result = await _open_external(hass, setup_integration)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_URL: gateway_url}
+    )
+    await hass.async_block_till_done()
+    if error is None:
+        assert result["reason"] == "reconfigure_successful"
+    else:
+        assert result["errors"] == {"base": error}
 
 
 async def test_reconfigure_changes_url_and_api_key(
@@ -308,185 +275,3 @@ async def test_reauth_flow(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert setup_integration.data[CONF_API_KEY] == "rotated"
-
-
-# --------------------------------------------------------------------------
-# Discovery (zeroconf) and local Gateway probe
-# --------------------------------------------------------------------------
-
-
-def _zeroconf(port: int, properties: dict[str, str] | None = None) -> ZeroconfServiceInfo:
-    return ZeroconfServiceInfo(
-        ip_address=ip_address("127.0.0.1"),
-        ip_addresses=[ip_address("127.0.0.1")],
-        port=port,
-        hostname="line-oa-gateway.local.",
-        type="_line-oa-gw._tcp.local.",
-        name="LINE OA Gateway._line-oa-gw._tcp.local.",
-        properties=properties or {},
-    )
-
-
-async def test_zeroconf_discovery_only_asks_for_api_key(
-    hass: HomeAssistant,
-    gateway: TestServer,
-    gateway_url: str,
-    gateway_state: MockGatewayState,
-) -> None:
-    """A Gateway announced via mDNS shows up as discovered; URL is filled in."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": SOURCE_ZEROCONF},
-        data=_zeroconf(gateway.port, {"instance_id": gateway_state.instance_id}),
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "discovery_confirm"
-    assert result["description_placeholders"] == {"url": gateway_url}
-    assert list(result["data_schema"].schema) == [CONF_API_KEY]
-    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
-    assert flows[0]["context"]["title_placeholders"] == {"name": f"127.0.0.1:{gateway.port}"}
-
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_API_KEY: "wrong"}
-    )
-    assert result["errors"] == {"base": "invalid_auth"}
-
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"] == {
-        CONF_URL: gateway_url,
-        CONF_API_KEY: gateway_state.api_key,
-        "connection_mode": "external",
-        "instance_id": gateway_state.instance_id,
-    }
-    assert result["result"].unique_id == gateway_state.instance_id
-    assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
-
-
-async def test_zeroconf_without_instance_id_txt(
-    hass: HomeAssistant, gateway: TestServer, gateway_state: MockGatewayState
-) -> None:
-    """Without an instance_id TXT record the ID is read from the status API."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(gateway.port)
-    )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["result"].unique_id == gateway_state.instance_id
-
-
-async def test_zeroconf_path_and_scheme_txt(hass: HomeAssistant, gateway: TestServer) -> None:
-    """TXT scheme/path are honoured when building the Gateway URL."""
-    from custom_components.line_oa.config_flow import discovery_url
-
-    info = _zeroconf(443, {"scheme": "https", "path": "/line/"})
-    assert discovery_url(info) == "https://127.0.0.1/line"
-    assert discovery_url(_zeroconf(0)) == "http://127.0.0.1:8790"
-
-
-async def test_zeroconf_not_answering_is_aborted(hass: HomeAssistant, socket_enabled: None) -> None:
-    """Announcements for a Gateway that does not answer are dropped."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(9)
-    )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "cannot_connect"
-
-
-async def test_zeroconf_ignored_when_already_configured(
-    hass: HomeAssistant, config_entry: MockConfigEntry, gateway: TestServer
-) -> None:
-    """Once LINE OA is set up, discovery does not show another card."""
-    config_entry.add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(gateway.port)
-    )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "single_instance_allowed"
-
-
-async def test_zeroconf_ignored_by_user_stays_ignored(
-    hass: HomeAssistant, gateway: TestServer, gateway_state: MockGatewayState
-) -> None:
-    """A discovery the user chose to ignore is not shown again."""
-    MockConfigEntry(
-        domain=DOMAIN, unique_id=gateway_state.instance_id, source="ignore"
-    ).add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN,
-        context={"source": SOURCE_ZEROCONF},
-        data=_zeroconf(gateway.port, {"instance_id": gateway_state.instance_id}),
-    )
-    assert result["type"] is FlowResultType.ABORT
-
-
-async def test_user_form_prefills_gateway_on_this_host(
-    hass: HomeAssistant, gateway: TestServer
-) -> None:
-    """A Gateway on this HA host's IP (default port) is pre-filled in the form."""
-    with (
-        patch(
-            "custom_components.line_oa.config_flow.get_url",
-            return_value="http://127.0.0.1:8123",
-        ),
-        patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", gateway.port),
-    ):
-        result = await _open_external(hass)
-    schema_keys = {str(key): key for key in result["data_schema"].schema}
-    assert schema_keys[CONF_URL].description == {
-        "suggested_value": f"http://127.0.0.1:{gateway.port}"
-    }
-
-
-async def test_user_form_without_local_gateway_is_empty(
-    hass: HomeAssistant, socket_enabled: None
-) -> None:
-    """Nothing is pre-filled when no Gateway answers on this host."""
-    with (
-        patch(
-            "custom_components.line_oa.config_flow.get_url",
-            return_value="http://127.0.0.1:8123",
-        ),
-        patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", 9),
-    ):
-        result = await _open_external(hass)
-    schema_keys = {str(key): key for key in result["data_schema"].schema}
-    assert not (schema_keys[CONF_URL].description or {}).get("suggested_value")
-
-
-async def test_user_form_without_internal_url(hass: HomeAssistant) -> None:
-    """No probe happens when HA has no known internal address."""
-    with patch(
-        "custom_components.line_oa.config_flow.get_url",
-        side_effect=NoURLAvailableError,
-    ):
-        result = await _open_external(hass)
-    assert result["step_id"] == "external"
-
-
-@pytest.mark.parametrize(("version", "error"), [(None, None), (1, None), (2, "incompatible_api")])
-async def test_external_gateway_api_version(
-    hass: HomeAssistant,
-    gateway_url: str,
-    gateway_state: MockGatewayState,
-    version: int | None,
-    error: str | None,
-) -> None:
-    """Older LXC Gateways (no api_version) and v1 work; other versions are refused."""
-    gateway_state.api_version = version
-    flow_id = await _start(hass)
-    result = await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
-    )
-    await hass.async_block_till_done()
-    if error is None:
-        assert result["type"] is FlowResultType.CREATE_ENTRY
-    else:
-        assert result["type"] is FlowResultType.FORM
-        assert result["errors"] == {"base": error}

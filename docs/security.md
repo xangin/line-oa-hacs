@@ -1,4 +1,6 @@
-# 安全性：API Key、Discovery 與配對
+# 安全性：API Key、Discovery 與配對（開發者參考）
+
+> 開發用資料，說明內部安全設計。
 
 ## 兩種認證
 
