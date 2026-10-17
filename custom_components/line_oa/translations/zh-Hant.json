@@ -85,7 +85,7 @@
       "invalid_discovery_info": "無法驗證 Gateway 的探索資訊。",
       "incompatible_api": "Add-on 的 Gateway API 版本不相容。",
       "addon_not_supported": "LINE OA 需要 LINE OA Add-on，但此 Home Assistant 安裝方式沒有 Supervisor（Add-on）。請使用 Home Assistant OS。",
-      "addon_not_found": "找不到執行中的 LINE OA Add-on。請先在「設定 → 應用程式／附加元件 → 商店」加入儲存庫 https://github.com/xangin/line-oa-ha-addon，安裝並啟動 LINE OA Add-on，再回來新增整合。",
+      "addon_not_found": "找不到執行中的 LINE OA Add-on。請先在「設定 → 應用程式／附加元件 → 商店」加入儲存庫 {addon_repo}，安裝並啟動 LINE OA Add-on，再回來新增整合。",
       "addon_declined": "你已選擇保留目前的 Gateway。",
       "kept_current": "已保留目前連線。之後可透過「重新設定」切換至 Add-on。",
       "migration_successful": "已遷移至 Add-on，實體與自動化皆已保留。"

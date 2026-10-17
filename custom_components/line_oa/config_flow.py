@@ -59,6 +59,7 @@ from .api import (
     parse_api_version,
 )
 from .const import (
+    ADDON_REPOSITORY_URL,
     CONF_ADDON_SLUG,
     CONF_CONNECTION_MODE,
     CONF_DECLINED_ADDON,
@@ -288,7 +289,10 @@ class LineOAConfigFlow(ConfigFlow, domain=DOMAIN):
         except AddonDiscoveryError as err:
             return self.async_abort(reason=str(err))
         if info is None:
-            return self.async_abort(reason="addon_not_found")
+            return self.async_abort(
+                reason="addon_not_found",
+                description_placeholders={"addon_repo": ADDON_REPOSITORY_URL},
+            )
         return await self.async_step_hassio(info)
 
     # ------------------------------------------------ Supervisor discovery
@@ -498,7 +502,10 @@ class LineOAConfigFlow(ConfigFlow, domain=DOMAIN):
                     self.hass, entry.data.get(CONF_INSTANCE_ID) if is_addon else None
                 )
                 if info is None:
-                    return self.async_abort(reason="addon_not_found")
+                    return self.async_abort(
+                        reason="addon_not_found",
+                        description_placeholders={"addon_repo": ADDON_REPOSITORY_URL},
+                    )
                 self._addon = parse_discovery(info)
             except AddonDiscoveryError as err:
                 return self.async_abort(reason=str(err))

@@ -14,5 +14,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/xangin/line-oa-hacs/issues",
   "requirements": [],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }

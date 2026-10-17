@@ -27,6 +27,9 @@ CONF_DECLINED_ADDON: Final = "declined_addon_instance_id"
 MODE_ADDON: Final = "addon"
 MODE_EXTERNAL: Final = "external"
 
+# Add-on repository users must add to the add-on store (shown in messages).
+ADDON_REPOSITORY_URL: Final = "https://github.com/xangin/line-oa-ha-addon"
+
 # The Gateway app listens on this fixed port on the Supervisor network.
 ADDON_API_PORT: Final = 8787
 

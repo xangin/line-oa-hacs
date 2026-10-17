@@ -461,6 +461,9 @@ async def test_add_integration_without_addon_is_honest(hass: HomeAssistant, app:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "addon_not_found"
+    assert result["description_placeholders"] == {
+        "addon_repo": "https://github.com/xangin/line-oa-ha-addon"
+    }
 
 
 async def test_add_integration_without_supervisor(hass: HomeAssistant) -> None:

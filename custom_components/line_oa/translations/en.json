@@ -85,7 +85,7 @@
       "invalid_discovery_info": "The Gateway announcement could not be verified.",
       "incompatible_api": "The add-on uses an unsupported Gateway API version.",
       "addon_not_supported": "LINE OA requires the LINE OA add-on, but this Home Assistant installation has no Supervisor (add-ons). Use Home Assistant OS.",
-      "addon_not_found": "No running LINE OA add-on was found. Add the repository https://github.com/xangin/line-oa-ha-addon in Settings → Add-ons → Store, install and start the LINE OA add-on, then add the integration again.",
+      "addon_not_found": "No running LINE OA add-on was found. Add the repository {addon_repo} in Settings → Add-ons → Store, install and start the LINE OA add-on, then add the integration again.",
       "addon_declined": "You chose to keep the current Gateway for this add-on.",
       "kept_current": "The current connection is kept. You can switch later via Reconfigure.",
       "migration_successful": "LINE OA now uses the add-on. Entities and automations were kept."
