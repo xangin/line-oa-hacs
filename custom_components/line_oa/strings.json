@@ -1,9 +1,10 @@
 {
   "config": {
+    "flow_title": "LINE OA Gateway ({name})",
     "step": {
       "user": {
         "title": "Connect to LINE OA Gateway",
-        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. LINE login itself is managed in the Gateway Web UI, not in Home Assistant.",
+        "description": "Enter the URL of your LINE OA Gateway and an API key created in the Gateway Web UI. If a Gateway runs on this Home Assistant host (port 8790), the URL is filled in automatically. LINE login itself is managed in the Gateway Web UI, not in Home Assistant.",
         "data": {
           "url": "Gateway URL",
           "api_key": "API key"
@@ -34,6 +35,16 @@
         "data_description": {
           "api_key": "Gateway API key created in the Gateway Web UI."
         }
+      },
+      "discovery_confirm": {
+        "title": "LINE OA Gateway found",
+        "description": "A LINE OA Gateway was found on your network at {url}. Enter the API key created in the Gateway Web UI to finish setup.",
+        "data": {
+          "api_key": "API key"
+        },
+        "data_description": {
+          "api_key": "Gateway API key created in the Gateway Web UI. This is not a LINE password."
+        }
       }
     },
     "error": {
@@ -48,7 +59,9 @@
       "single_instance_allowed": "Only one LINE OA Gateway can be configured.",
       "reconfigure_successful": "Re-configuration was successful.",
       "reauth_successful": "Re-authentication was successful.",
-      "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match). Add it as a new integration instead."
+      "wrong_gateway": "This URL belongs to a different Gateway (instance_id does not match). Add it as a new integration instead.",
+      "cannot_connect": "The discovered Gateway does not respond.",
+      "invalid_discovery_info": "The Gateway announcement could not be used."
     }
   },
   "entity": {

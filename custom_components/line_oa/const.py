@@ -10,6 +10,10 @@ DOMAIN: Final = "line_oa"
 LOGGER = logging.getLogger(__package__)
 
 DEFAULT_NAME: Final = "LINE OA"
+# Default Gateway port, used for zeroconf records without a port and for the
+# "Gateway on this Home Assistant host" probe in the manual setup form.
+DEFAULT_GATEWAY_PORT: Final = 8790
+LOCAL_PROBE_TIMEOUT: Final = 3  # seconds
 DEFAULT_SCAN_INTERVAL: Final = timedelta(seconds=60)
 
 # Actions (service names). "send_screen_shot" is intentionally spelled this way.

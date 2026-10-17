@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 from unittest.mock import patch
 
 from aiohttp.test_utils import TestServer
@@ -9,10 +10,12 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.line_oa.const import DOMAIN
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER, SOURCE_ZEROCONF
 from homeassistant.const import CONF_API_KEY, CONF_URL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType, UnknownFlow
+from homeassistant.helpers.network import NoURLAvailableError
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .mock_gateway import MockGatewayState, create_app
 
@@ -286,3 +289,158 @@ async def test_reauth_flow(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert setup_integration.data[CONF_API_KEY] == "rotated"
+
+
+# --------------------------------------------------------------------------
+# Discovery (zeroconf) and local Gateway probe
+# --------------------------------------------------------------------------
+
+
+def _zeroconf(port: int, properties: dict[str, str] | None = None) -> ZeroconfServiceInfo:
+    return ZeroconfServiceInfo(
+        ip_address=ip_address("127.0.0.1"),
+        ip_addresses=[ip_address("127.0.0.1")],
+        port=port,
+        hostname="line-oa-gateway.local.",
+        type="_line-oa-gw._tcp.local.",
+        name="LINE OA Gateway._line-oa-gw._tcp.local.",
+        properties=properties or {},
+    )
+
+
+async def test_zeroconf_discovery_only_asks_for_api_key(
+    hass: HomeAssistant,
+    gateway: TestServer,
+    gateway_url: str,
+    gateway_state: MockGatewayState,
+) -> None:
+    """A Gateway announced via mDNS shows up as discovered; URL is filled in."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_ZEROCONF},
+        data=_zeroconf(gateway.port, {"instance_id": gateway_state.instance_id}),
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+    assert result["description_placeholders"] == {"url": gateway_url}
+    assert list(result["data_schema"].schema) == [CONF_API_KEY]
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert flows[0]["context"]["title_placeholders"] == {"name": f"127.0.0.1:{gateway.port}"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: "wrong"}
+    )
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: gateway_state.api_key}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_URL: gateway_url, CONF_API_KEY: gateway_state.api_key}
+    assert result["result"].unique_id == gateway_state.instance_id
+    assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
+
+
+async def test_zeroconf_without_instance_id_txt(
+    hass: HomeAssistant, gateway: TestServer, gateway_state: MockGatewayState
+) -> None:
+    """Without an instance_id TXT record the ID is read from the status API."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(gateway.port)
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_API_KEY: gateway_state.api_key}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == gateway_state.instance_id
+
+
+async def test_zeroconf_path_and_scheme_txt(hass: HomeAssistant, gateway: TestServer) -> None:
+    """TXT scheme/path are honoured when building the Gateway URL."""
+    from custom_components.line_oa.config_flow import discovery_url
+
+    info = _zeroconf(443, {"scheme": "https", "path": "/line/"})
+    assert discovery_url(info) == "https://127.0.0.1/line"
+    assert discovery_url(_zeroconf(0)) == "http://127.0.0.1:8790"
+
+
+async def test_zeroconf_not_answering_is_aborted(hass: HomeAssistant, socket_enabled: None) -> None:
+    """Announcements for a Gateway that does not answer are dropped."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(9)
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"
+
+
+async def test_zeroconf_ignored_when_already_configured(
+    hass: HomeAssistant, config_entry: MockConfigEntry, gateway: TestServer
+) -> None:
+    """Once LINE OA is set up, discovery does not show another card."""
+    config_entry.add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf(gateway.port)
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "single_instance_allowed"
+
+
+async def test_zeroconf_ignored_by_user_stays_ignored(
+    hass: HomeAssistant, gateway: TestServer, gateway_state: MockGatewayState
+) -> None:
+    """A discovery the user chose to ignore is not shown again."""
+    MockConfigEntry(
+        domain=DOMAIN, unique_id=gateway_state.instance_id, source="ignore"
+    ).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_ZEROCONF},
+        data=_zeroconf(gateway.port, {"instance_id": gateway_state.instance_id}),
+    )
+    assert result["type"] is FlowResultType.ABORT
+
+
+async def test_user_form_prefills_gateway_on_this_host(
+    hass: HomeAssistant, gateway: TestServer
+) -> None:
+    """A Gateway on this HA host's IP (default port) is pre-filled in the form."""
+    with (
+        patch(
+            "custom_components.line_oa.config_flow.get_url",
+            return_value="http://127.0.0.1:8123",
+        ),
+        patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", gateway.port),
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    schema_keys = {str(key): key for key in result["data_schema"].schema}
+    assert schema_keys[CONF_URL].description == {
+        "suggested_value": f"http://127.0.0.1:{gateway.port}"
+    }
+
+
+async def test_user_form_without_local_gateway_is_empty(
+    hass: HomeAssistant, socket_enabled: None
+) -> None:
+    """Nothing is pre-filled when no Gateway answers on this host."""
+    with (
+        patch(
+            "custom_components.line_oa.config_flow.get_url",
+            return_value="http://127.0.0.1:8123",
+        ),
+        patch("custom_components.line_oa.config_flow.DEFAULT_GATEWAY_PORT", 9),
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    schema_keys = {str(key): key for key in result["data_schema"].schema}
+    assert not (schema_keys[CONF_URL].description or {}).get("suggested_value")
+
+
+async def test_user_form_without_internal_url(hass: HomeAssistant) -> None:
+    """No probe happens when HA has no known internal address."""
+    with patch(
+        "custom_components.line_oa.config_flow.get_url",
+        side_effect=NoURLAvailableError,
+    ):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
+    assert result["step_id"] == "user"

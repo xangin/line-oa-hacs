@@ -67,7 +67,7 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 
 不需要修改 `configuration.yaml`。
 
-1. **設定 → 裝置與服務 → 新增整合 → LINE OA**
+1. **設定 → 裝置與服務 → 新增整合 → LINE OA**（若已出現「已發現：LINE OA Gateway」，直接點它即可，見下方「自動發現」）
 2. 輸入：
    - **Gateway 網址**：例如 `http://192.168.1.50:8787`
    - **API Key**：Gateway Web UI 建立的 Key
@@ -88,6 +88,56 @@ Home Assistant ── LINE OA 整合（本專案） ──HTTP/HTTPS──▶ LI
 | 自動化編輯器中的三個 Action |
 | --- |
 | ![Action 清單](docs/screenshots/05-automation-action-picker.jpg) |
+
+### 自動發現 Gateway（免輸入網址）
+
+HA 只會在下列兩種情況自動帶出 Gateway 網址，使用者只需要貼上 API Key：
+
+**1. 區網自動發現（zeroconf / mDNS，建議）**
+
+Gateway 在區網廣播 `_line-oa-gw._tcp` 服務後，HA 重新啟動（或幾分鐘內）會在 **設定 → 裝置與服務** 顯示「**已發現：LINE OA Gateway（IP:8790）**」，點「新增」→ 只輸入 API Key 即可。Gateway 在 Ubuntu LXC 或 HA 本機都適用（需在同一個區網網段）。
+
+在 Gateway 所在的 Ubuntu LXC 上，用 Avahi 廣播即可（**不需要修改 Gateway 程式**）：
+
+```bash
+sudo apt install -y avahi-daemon
+```
+
+建立 `/etc/avahi/services/line-oa-gateway.service`：
+
+```xml
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">LINE OA Gateway on %h</name>
+  <service>
+    <type>_line-oa-gw._tcp</type>
+    <port>8790</port>
+  </service>
+</service-group>
+```
+
+```bash
+sudo systemctl restart avahi-daemon
+```
+
+可選的 TXT 記錄（加在 `<service>` 內，例如 `<txt-record>instance_id=...</txt-record>`）：
+
+| TXT | 說明 |
+| --- | --- |
+| `instance_id` | Gateway 的 `instance_id`；有的話 HA 可在輸入 API Key 前就辨識是否已加入過 |
+| `scheme` | `https` 時改用 HTTPS（預設 `http`） |
+| `path` | Gateway 位於反向代理子路徑時的基本路徑，例如 `/line` |
+
+**2. Gateway 在 HA 本機**
+
+手動「新增整合 → LINE OA」時，整合會先探測 **HA 本機 IP 的 8790 埠**，找到 Gateway 就自動填入網址。
+
+說明：
+
+- 自訂整合在尚未設定前不會執行任何程式，所以無法「自己掃描」網路；HA 官方的自動發現必須由 Gateway 端廣播（上面的 mDNS）。
+- 已經設定好 LINE OA，或在「已發現」卡片按了「忽略」後，就不會再跳出發現通知。
+- API Key 仍需手動輸入：它是 HA 與 Gateway 之間的驗證，不會透過廣播傳送。
 
 ### 重新設定（Reconfigure）
 

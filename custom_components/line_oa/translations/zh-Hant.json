@@ -1,9 +1,10 @@
 {
   "config": {
+    "flow_title": "LINE OA Gateway（{name}）",
     "step": {
       "user": {
         "title": "連線至 LINE OA Gateway",
-        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。LINE 登入由 Gateway Web UI 管理，不在 Home Assistant 中進行。",
+        "description": "請輸入 LINE OA Gateway 的網址，以及在 Gateway Web UI 建立的 API Key。若 Gateway 就在這台 Home Assistant 主機上（埠 8790），網址會自動填好。LINE 登入由 Gateway Web UI 管理，不在 Home Assistant 中進行。",
         "data": {
           "url": "Gateway 網址",
           "api_key": "API Key"
@@ -34,6 +35,16 @@
         "data_description": {
           "api_key": "在 Gateway Web UI 建立的 API Key。"
         }
+      },
+      "discovery_confirm": {
+        "title": "發現 LINE OA Gateway",
+        "description": "在區網中發現 LINE OA Gateway：{url}。請輸入在 Gateway Web UI 建立的 API Key 即可完成設定。",
+        "data": {
+          "api_key": "API Key"
+        },
+        "data_description": {
+          "api_key": "在 Gateway Web UI 建立的 API Key（不是 LINE 密碼）。"
+        }
       }
     },
     "error": {
@@ -48,7 +59,9 @@
       "single_instance_allowed": "目前只能設定一個 LINE OA Gateway。",
       "reconfigure_successful": "重新設定成功。",
       "reauth_successful": "重新驗證成功。",
-      "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致），無法用重新設定替換。"
+      "wrong_gateway": "此網址屬於另一台 Gateway（instance_id 不一致），無法用重新設定替換。",
+      "cannot_connect": "發現的 Gateway 沒有回應。",
+      "invalid_discovery_info": "無法使用此 Gateway 的廣播資訊。"
     }
   },
   "entity": {
