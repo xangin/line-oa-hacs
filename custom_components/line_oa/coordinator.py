@@ -15,6 +15,7 @@ from .api import (
     LineOAGatewayClient,
 )
 from .const import CONF_INSTANCE_ID, DEFAULT_SCAN_INTERVAL, DOMAIN, LOGGER
+from .login_alert import LineLoginAlert
 
 type LineOAConfigEntry = ConfigEntry[LineOACoordinator]
 
@@ -45,6 +46,7 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
         )
         self.client = client
         self.gateway_reachable = False
+        self.login_alert = LineLoginAlert(hass, config_entry)
 
     async def _async_update_data(self) -> GatewayStatus:
         """Fetch health, then status, from the Gateway."""
@@ -89,4 +91,5 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
             # A different Gateway now answers at this address (e.g. reinstalled).
             # Do not show its state as ours; the user must reconfigure explicitly.
             raise UpdateFailed(translation_domain=DOMAIN, translation_key="instance_mismatch")
+        await self.login_alert.async_update(status)
         return status

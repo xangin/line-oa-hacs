@@ -9,10 +9,13 @@
     "@xangin"
   ],
   "config_flow": true,
+  "dependencies": [
+    "persistent_notification"
+  ],
   "documentation": "https://github.com/xangin/line-oa-hacs",
   "integration_type": "service",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/xangin/line-oa-hacs/issues",
   "requirements": [],
-  "version": "0.3.1"
+  "version": "0.3.2"
 }

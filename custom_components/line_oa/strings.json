@@ -251,5 +251,11 @@
     "instance_mismatch": {
       "message": "The Gateway at the configured address has a different instance_id (another or reinstalled Gateway). Use Reconfigure."
     }
+  },
+  "issues": {
+    "line_login_required": {
+      "title": "LINE OA needs you to sign in again",
+      "description": "The LINE login is no longer valid, so LINE notifications cannot be sent. [Open the LINE OA management page]({login_url}), open its Web UI, sign in by scanning the QR code, then press Test connection. This reminder clears after login is verified. Home Assistant pairing is kept; do not pair again."
+    }
   }
 }

@@ -42,6 +42,7 @@ class MockGatewayState:
     aliases: list[str] = field(default_factory=lambda: ["simon", "family"])
     line_logged_in: bool | None = True
     session_status: str = "ready"
+    login_required_reason: str | None = None
     account_name: str = "家庭通知"
     last_error: Any = None
     health_status: int = 200
@@ -162,6 +163,7 @@ def create_app(state: MockGatewayState) -> web.Application:
                 "gateway_status": "online",
                 "line_logged_in": state.line_logged_in,
                 "session_status": state.session_status,
+                "login_required_reason": state.login_required_reason,
                 "account_name": state.account_name,
                 "last_error": state.last_error,
                 "updated_at": "2026-10-17T10:00:00+08:00",

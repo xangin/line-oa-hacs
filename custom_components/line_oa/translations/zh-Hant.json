@@ -251,5 +251,11 @@
     "instance_mismatch": {
       "message": "LINE OA Gateway 的 instance_id 與設定不符；可能是另一台 Gateway 或已重新安裝，請使用「重新設定」。"
     }
+  },
+  "issues": {
+    "line_login_required": {
+      "title": "LINE OA 需要重新登入",
+      "description": "LINE 登入已失效，目前無法傳送 LINE 通知。請[開啟 LINE OA 管理頁面]({login_url})，進入 Web UI 重新掃碼登入，並按「手動測試連線」。驗證成功後，此提醒會自動清除。Home Assistant 配對資料保留，不需要重新配對。"
+    }
   }
 }

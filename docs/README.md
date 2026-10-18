@@ -48,3 +48,5 @@ python3.14 -m venv .venv
 ```
 
 CI（`.github/workflows/`）執行 HACS 驗證、hassfest，以及 Home Assistant 2026.9 / 2026.10 的 Ruff、mypy、pytest。
+
+`GET /api/v1/status` 的可選 `login_required_reason`（Add-on 0.1.6 起）可為 `expired`、`not_logged_in`、`logged_out`。HACS 0.3.2 用它辨識主動登出；缺少此欄位仍相容。確認登入失效會建立 HA 持續通知與 Repairs issue，恢復為 ready 且 line_logged_in=true 時清除。網路、未知及一般錯誤不自行推斷為失效。

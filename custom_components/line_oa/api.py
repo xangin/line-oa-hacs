@@ -252,6 +252,7 @@ class GatewayStatus:
     last_error: str | None
     updated_at: str | None
     api_version: int | None = None
+    login_required_reason: str | None = None
 
     @classmethod
     def from_dict(cls, data: Any) -> GatewayStatus:
@@ -272,6 +273,7 @@ class GatewayStatus:
             account_name=_opt_str(data.get("account_name")),
             last_error=_error_summary(data.get("last_error")),
             updated_at=_opt_str(data.get("updated_at")),
+            login_required_reason=_opt_str(data.get("login_required_reason")),
         )
 
 

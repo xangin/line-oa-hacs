@@ -45,4 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LineOAConfigEntry) -> bo
 
 async def async_unload_entry(hass: HomeAssistant, entry: LineOAConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        entry.runtime_data.login_alert.async_stop()
+    return unloaded
