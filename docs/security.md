@@ -71,3 +71,11 @@ Add-on 已配對時不會發出配對碼。要重新配對，必須由管理員�
 ## 發送可靠性
 
 兩種模式都一樣：結果 `unknown`、逾時、斷線、500/502/504 都回報「結果不明」，**不自動重送**，也不會改用另一台 Gateway 重送。
+
+## 公開圖片下載（0.3.3）
+
+外部圖片使用獨立的 aiohttp session、DummyCookieJar，不沿用 Gateway client、HA Cookie、認證 Header 或環境 Proxy。公開網址可帶簽名 Query，但錯誤訊息不包含來源網址或原始 aiohttp 例外；Add-on 只收到圖片內容與固定檔名。TLS 保持驗證。
+
+每次連線的自訂 DNS resolver 先檢查所有回覆都是公開 unicast 位址，再將同一組結果交給 connector 建立連線，避免先檢查、再重新查 DNS 的落差。literal IP、每一步重新導向都檢查；拒絕私有、loopback、link-local、multicast 位址與 HTTPS→HTTP 降級。簽名 URL 保留已編碼路徑與 Query。
+
+同一 config entry 的 lock 涵蓋下載至上傳完成，限制遠端圖片同時佔用的記憶體。20 秒涵蓋 DNS、連線、重新導向與下載；串流實際內容上限 10 MiB，拒絕壓縮傳輸，避免依壓縮大小誤判。檔案格式沿用 JPEG／PNG magic 檢查，沒有新增圖片轉碼器或外部下載相依。內容只留 RAM，沒有磁碟暫存或快取。

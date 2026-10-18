@@ -53,6 +53,7 @@ from .const import (
 )
 from .coordinator import LineOAConfigEntry
 from .images import LoadedImage, async_capture_camera_image, async_load_local_image
+from .remote_images import async_download_image
 
 
 def single_who(value: Any) -> str:
@@ -264,7 +265,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
         entry = _get_entry(hass)
         who: str = call.data[ATTR_WHO]
         await _async_check_alias(hass, entry, who)
-        image = await async_load_local_image(hass, call.data[ATTR_IMAGE_PATH])
+        source: str = call.data[ATTR_IMAGE_PATH]
+        if not source.startswith("/") and (
+            "://" in source or source.lower().startswith(("http:", "https:"))
+        ):
+            # Keep at most one remote image in RAM through download and upload.
+            async with entry.runtime_data.remote_image_lock:
+                image = await async_download_image(source)
+                return await _async_send_image(hass, entry, who, image, kind="image")
+        image = await async_load_local_image(hass, source)
         return await _async_send_image(hass, entry, who, image, kind="image")
 
     async def send_screen_shot(call: ServiceCall) -> ServiceResponse:

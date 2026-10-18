@@ -139,15 +139,15 @@
     },
     "send_image": {
       "name": "傳送圖片",
-      "description": "將 Home Assistant 系統上的 JPEG 或 PNG 圖片檔（例如 /media 內）傳送給單一接收者別名。圖片不附加文字，需要文字請另外使用「傳送文字」。",
+      "description": "從 Home Assistant 本機檔案或公開圖片網址取得 JPEG／PNG，傳送給一個收件者別名。圖片不附加文字；文字請使用「傳送文字」。",
       "fields": {
         "who": {
           "name": "接收者",
           "description": "接收者別名，請填寫 LINE OA Gateway 中已設定的別名。"
         },
         "image_path": {
-          "name": "圖片路徑",
-          "description": "Home Assistant 系統上的 JPEG/PNG 絕對路徑（上限 10 MiB），必須位於允許的目錄內，例如 /media。不是 Gateway LXC 的路徑。"
+          "name": "圖片路徑或網址",
+          "description": "HA 本機 JPEG／PNG 絕對路徑，或公開 HTTP／HTTPS 圖片直連網址。最大 10 MiB；外部圖片下載後只在記憶體暫存，由 HA 上傳給 Add-on。"
         }
       }
     },
@@ -250,6 +250,30 @@
     },
     "instance_mismatch": {
       "message": "LINE OA Gateway 的 instance_id 與設定不符；可能是另一台 Gateway 或已重新安裝，請使用「重新設定」。"
+    },
+    "image_url_invalid": {
+      "message": "請輸入有效的 HTTP 或 HTTPS 圖片網址；不可包含使用者名稱、密碼或 #片段。"
+    },
+    "image_url_not_allowed": {
+      "message": "圖片網址或重新導向未指向公開網路位址，或將 HTTPS 降為 HTTP。"
+    },
+    "image_url_download_failed": {
+      "message": "無法下載圖片，請檢查圖片伺服器、TLS 憑證與網路。本次尚未發送。"
+    },
+    "image_url_http_error": {
+      "message": "圖片伺服器回傳 HTTP {status}，本次尚未發送。"
+    },
+    "image_url_too_large": {
+      "message": "下載的圖片超過 10 MiB，本次尚未發送。"
+    },
+    "image_url_invalid_format": {
+      "message": "網址回傳的內容不是 JPEG 或 PNG 圖片。請使用圖片直連網址，而非網頁。本次尚未發送。"
+    },
+    "image_url_timeout": {
+      "message": "下載圖片超過 20 秒，本次尚未發送。"
+    },
+    "image_url_redirect_limit": {
+      "message": "圖片網址重新導向超過 3 次，請使用最終圖片直連網址。本次尚未發送。"
     }
   },
   "issues": {

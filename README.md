@@ -145,7 +145,7 @@ actions:
 | 欄位 | 必要 | 說明 |
 | --- | --- | --- |
 | `who` | ✔ | 接收者別名 |
-| `image_path` | ✔ | **Home Assistant 系統上**的圖片絕對路徑（例如 `/media/...`） |
+| `image_path` | ✔ | HA 本機圖片絕對路徑（例如 `/media/...`），或公開 HTTP／HTTPS 圖片直連網址 |
 
 圖片**不附加文字**，沒有 `message` 欄位（填了會直接報錯）。需要說明文字時，請另外用 `line_oa.send_text`：
 
@@ -169,7 +169,27 @@ actions:
       message: "設備檢查結果"
 ```
 
-圖片由 Home Assistant 讀取後上傳給 Add-on；Add-on 不會直接讀取 HA 的檔案。
+從 **0.3.3** 起，同一個 `image_path` 欄位也接受公開圖片網址：
+
+```yaml
+actions:
+  - action: line_oa.send_image
+    data:
+      who: simon
+      image_path: "https://example.com/notification.jpg"
+```
+
+請將範例換成實際可直接下載的 JPEG／PNG 圖片網址。也可以在 `image_path` 使用 HA Template 組合網址。
+
+圖片由 Home Assistant 讀取或下載後，以 multipart 圖片內容上傳給 Add-on；Add-on 不需要知道網址，也不會直接讀取 HA 的檔案。外部圖片**只在 HACS 記憶體短暫保存**，發送結束後釋放，不建立暫存檔或永久快取，不增加備份內容。
+
+- 網址下載總逾時 **20 秒**，最多 **3 次**重新導向；沒有 Content-Length 的下載也會逐塊檢查 **10 MiB** 上限。
+- 請使用圖片直連網址。一般網頁、登入頁、GIF、WebP、SVG 等格式會明確報錯，不會當作圖片發送。
+- 支援帶簽名參數的圖片網址；下載不帶 HA／Add-on 的 API Key 或 Cookie。需要登入或特殊認證 Header 的網站不包含在此功能內。
+- 外部網址需指向公開網路位址；不接受內網、localhost、link-local 位址，重新導向也套用此規則。HTTPS 不會降級到 HTTP，TLS 憑證須有效。
+- 同一整合一次只處理一張外部圖片的下載及上傳；其他外部圖片請求依序執行。下載失敗時不會呼叫 Add-on 發送；上傳結果不明仍不自動重送。
+
+本機檔案的限制維持如下：
 
 - 支援 JPEG、PNG（以檔案內容判斷，不只看副檔名），上限 **10 MiB**。
 - 只能讀取 HA `allowlist_external_dirs` 內的檔案。預設包含媒體資料夾（HA OS / Container 為 `/media`，Core 安裝為 `config/media`）與 `config/www`。
@@ -283,7 +303,9 @@ HACS 整合 **0.3.2** 起，確認 LINE 登入失效時，會建立一則 HA 持
 | 配對失敗／配對碼已過期 | 直接重試；Add-on 已配對過時，請先在 Add-on Web UI 按「允許 Home Assistant 配對」 |
 | 找不到 LINE 接收者別名「xxx」 | 到 Add-on 的「聯絡人」確認別名拼字 |
 | 不允許讀取「/path」 | 圖片需放在 `/media`（或 `allowlist_external_dirs` 內），且不能是隱藏檔或敏感檔 |
-| 不是 JPEG 或 PNG 圖片 / 超過 10 MiB | 轉檔或縮小圖片 |
+| 不是 JPEG 或 PNG 圖片 / 超過 10 MiB | 改用圖片直連網址，或轉檔、縮小圖片 |
+| 外部圖片下載失敗／逾時／HTTP 錯誤 | 確認 HA 能在 20 秒內下載圖片，不需要登入，且 TLS 憑證有效 |
+| 圖片網址不允許／重新導向過多 | 使用公開網路的最終圖片直連網址；內網來源請用既有攝影機截圖或本機檔案方式 |
 | 攝影機無法提供目前的靜態畫面 | 攝影機離線、關閉或不支援靜態畫面；先在 HA 攝影機畫面確認能看到即時影像 |
 | message is not supported for images | `send_image` / `send_screen_shot` 不接受 `message`；文字請另外用 `line_oa.send_text` |
 | 發送結果不明 | 見上一節；**不要立即重試** |

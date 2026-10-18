@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from asyncio import Lock
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -47,6 +49,7 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
         self.client = client
         self.gateway_reachable = False
         self.login_alert = LineLoginAlert(hass, config_entry)
+        self.remote_image_lock = Lock()
 
     async def _async_update_data(self) -> GatewayStatus:
         """Fetch health, then status, from the Gateway."""

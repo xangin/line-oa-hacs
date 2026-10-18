@@ -20,6 +20,7 @@ send_image:
       selector:
         text:
     image_path:
+      # Kept for compatibility; accepts either an allowed local path or HTTP(S) URL.
       required: true
       example: "/media/snapshot.jpg"
       selector:

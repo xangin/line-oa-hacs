@@ -6,11 +6,13 @@ import os
 from pathlib import Path
 import re
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.line_oa.const import DOMAIN
+from custom_components.line_oa.images import LoadedImage
 from homeassistant.components.camera.const import DATA_COMPONENT
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.helpers import config_validation as cv
@@ -70,11 +72,18 @@ async def test_readme_yaml_examples_run(
     for action in actions:
         if "image_path" in action.get("data", {}):
             path = action["data"]["image_path"]
+            if path.startswith(("http://", "https://")):
+                continue
             assert path.startswith("/media/")
             action["data"]["image_path"] = str(media / path.removeprefix("/media/"))
 
     script = Script(hass, actions, "README example", DOMAIN)
-    await script.async_run(context=Context())
+    # Remote examples use synthetic image bytes; never contact the public example host.
+    with patch(
+        "custom_components.line_oa.services.async_download_image",
+        AsyncMock(return_value=LoadedImage(JPEG, "image/jpeg", "remote.jpg")),
+    ):
+        await script.async_run(context=Context())
     await hass.async_block_till_done()
 
     line_oa_calls = [a for a in actions if a["action"].startswith("line_oa.")]
@@ -123,7 +132,7 @@ async def test_traditional_chinese_ui_strings(hass: HomeAssistant) -> None:
     assert services[f"{prefix}.send_screen_shot.name"] == "傳送攝影機截圖"
     assert services[f"{prefix}.send_text.fields.who.name"] == "接收者"
     assert services[f"{prefix}.send_text.fields.message.name"] == "訊息"
-    assert services[f"{prefix}.send_image.fields.image_path.name"] == "圖片路徑"
+    assert services[f"{prefix}.send_image.fields.image_path.name"] == "圖片路徑或網址"
     assert services[f"{prefix}.send_screen_shot.fields.camera_entity.name"] == "攝影機"
     assert services[f"{prefix}.send_text.fields.who.description"].startswith(
         "接收者別名，請填寫 LINE OA Gateway 中已設定的別名。"

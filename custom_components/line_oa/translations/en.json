@@ -139,15 +139,15 @@
     },
     "send_image": {
       "name": "Send image",
-      "description": "Sends a JPEG or PNG image file from the Home Assistant file system (for example /media) to one LINE recipient alias. Images are sent without text; use Send text for a message.",
+      "description": "Sends a JPEG/PNG from a Home Assistant file or public image URL to one recipient alias. Images carry no text; use Send text separately.",
       "fields": {
         "who": {
           "name": "Recipient",
           "description": "Recipient alias configured in the LINE OA Gateway. A single alias only."
         },
         "image_path": {
-          "name": "Image path",
-          "description": "Absolute path of a JPEG/PNG file on the Home Assistant system (max 10 MiB). Must be inside an allowed directory such as /media."
+          "name": "Image path or URL",
+          "description": "Absolute path of a local JPEG/PNG in an allowed directory, or a public HTTP/HTTPS direct image URL. Max 10 MiB. HA downloads remote images into memory and uploads the image bytes to the add-on."
         }
       }
     },
@@ -250,6 +250,30 @@
     },
     "instance_mismatch": {
       "message": "The Gateway at the configured address has a different instance_id (another or reinstalled Gateway). Use Reconfigure."
+    },
+    "image_url_invalid": {
+      "message": "Enter a valid HTTP or HTTPS image URL without a username, password or fragment."
+    },
+    "image_url_not_allowed": {
+      "message": "The image URL or redirect does not point to a public address, or redirects HTTPS to HTTP."
+    },
+    "image_url_download_failed": {
+      "message": "Could not download the image. Check the image server, TLS certificate and network. Nothing was sent."
+    },
+    "image_url_http_error": {
+      "message": "The image server returned HTTP {status}. Nothing was sent."
+    },
+    "image_url_too_large": {
+      "message": "The downloaded image exceeds 10 MiB. Nothing was sent."
+    },
+    "image_url_invalid_format": {
+      "message": "The URL did not return a JPEG or PNG image. Use a direct image link, not a web page. Nothing was sent."
+    },
+    "image_url_timeout": {
+      "message": "Downloading the image exceeded 20 seconds. Nothing was sent."
+    },
+    "image_url_redirect_limit": {
+      "message": "The image URL redirected more than 3 times. Use the final direct image URL. Nothing was sent."
     }
   },
   "issues": {
