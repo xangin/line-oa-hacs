@@ -32,7 +32,7 @@
 | 項目 | 需求 |
 | --- | --- |
 | Home Assistant | **Home Assistant OS**（需要 Supervisor／Add-on 商店），版本 **2026.9.0** 以上 |
-| 架構 | LINE OA Add-on 目前只提供 **amd64（x86-64）** 映像 |
+| 架構 | LINE OA Add-on 提供 **amd64（x86-64）** 與 **aarch64（64 位元 ARM／Raspberry Pi）** 映像 |
 | HACS | 2.x |
 | LINE | 可管理該官方帳號的 LINE 帳號，且官方帳號已啟用「聊天」（見 [Add-on 說明](https://github.com/xangin/line-oa-ha-addon#2-必須啟用聊天並建立對話)） |
 
@@ -251,12 +251,33 @@ actions:
 
 ## 狀態感測器
 
-| 實體 | 狀態 | 說明 |
+整合 **0.3.4** 起，先看「LINE OA 服務狀態」即可辨識問題發生在 HA 配對、Add-on 連線，還是 LINE 登入。三個實體的 ID 與 unique ID 保持不變；既有自動化與自行設定的名稱、ID 都會保留。
+
+| 顯示名稱 | 實體 ID | 說明 |
 | --- | --- | --- |
-| `binary_sensor.line_oa_connected`（Gateway 連線狀態） | `on` / `off` | HA 是否連得到 LINE OA Add-on。在線**不代表** LINE 已登入 |
-| `binary_sensor.line_oa_logged_in`（LINE 登入狀態） | `on` / `off` / `unavailable` | Add-on 的 LINE 登入是否有效。Add-on 連不上時為 `unavailable`，**不會**誤判為 `off` |
-| `sensor.line_oa_session_status`（LINE Session 狀態） | `ready`、`auth_required`、`expired`、`disconnected`、`error`、`unknown` | Add-on 連不上時為 `unavailable`，不會殘留舊的 `ready`。屬性 `account_name` 為官方帳號名稱 |
-| `sensor.line_oa_last_error`（最近錯誤） | 錯誤摘要或 `none` | 限制 255 字元；會遮蔽 Token、Cookie、Authorization 等字樣 |
+| LINE OA 服務狀態 | `sensor.line_oa_session_status` | 彙整連線與登入狀態，詳見下表。屬性 `account_name` 為官方帳號名稱；讀取失敗時清空，避免顯示舊資料 |
+| HA 與 Add-on 連線 | `binary_sensor.line_oa_connected` | `on`：Add-on 健康檢查有回應；`off`：無法連線或健康檢查失敗。另看服務狀態確認配對及 LINE 登入 |
+| LINE 帳號登入有效 | `binary_sensor.line_oa_logged_in` | `on`：Add-on 回報登入有效；`off`：Add-on 回報未登入；`unavailable`：目前無法確認，例如 Add-on 離線、配對失效或回應缺少登入資訊 |
+| 最近錯誤 | `sensor.line_oa_last_error` | 錯誤摘要或 `none`，限制 255 字元，遮蔽 Token、Cookie、Authorization 等字樣。狀態讀取失敗時為 `unavailable`；完整資訊請看 Add-on 日誌 |
+
+### 服務狀態與處理方式
+
+| 中文顯示狀態 | 自動化使用的狀態值 | 意義與處理方式 |
+| --- | --- | --- |
+| 連線與登入正常 | `ready` | HA 能讀取正確 Add-on 的狀態，且 LINE 登入有效。無須處理；發送前仍須設定接收者別名 |
+| Add-on 無法連線 | `gateway_unreachable` | 檢查 Add-on 是否啟動、健康檢查及日誌是否正常；外部 Gateway 則檢查網址、連接埠與網路。恢復後自動更新 |
+| HA 需要重新配對 | `pairing_required` | Add-on 拒絕 HA 的 API Key。在 Add-on Web UI 按「允許 Home Assistant 配對」，再回 HA 完成重新驗證；外部 Gateway 請更新 API Key |
+| LINE 尚未登入 | `auth_required` | 到 Add-on Web UI 掃描 QR Code 登入，再按「手動測試連線」。舊版 Gateway 登入失效也可能回報此狀態 |
+| LINE 登入已過期 | `expired` | 到 Add-on Web UI 重新掃碼登入，再按「手動測試連線」。無須重新配對 HA |
+| LINE 暫時無法連線 | `disconnected` | 檢查 Add-on 對外網路及 LINE 服務，稍候再測試連線；若持續發生，查看 Add-on 日誌 |
+| LINE 驗證或權限異常 | `error` | Add-on 回報 LINE 錯誤，可能是驗證、權限或其他請求異常；查看「最近錯誤」及 Add-on 日誌確認原因，再依錯誤處理 |
+| 無法讀取 Add-on 狀態 | `status_unavailable` | 健康檢查有回應，但狀態 API 回應錯誤或格式不符。查看 Add-on 日誌，確認整合與 Add-on 版本相容 |
+| 連到不同的 Add-on | `instance_mismatch` | 此網址回應的是另一個 Gateway 實例，例如重裝後識別碼改變。先確認目標正確，再從整合「重新設定」明確切換連線 |
+| 狀態尚未確認 | `unknown` | 資料缺漏、出現未支援狀態，或 `ready` 與登入資訊不一致。稍候更新或手動測試連線，持續發生則查看日誌與版本 |
+
+中文介面的列舉狀態會依 HA 使用者的介面語言顯示；開發者工具、範本與自動化請使用表中的英文狀態值。實體的預設名稱依 **HA 系統語言**建立，因此系統英文、介面中文時，名稱仍可能是英文，但服務狀態會顯示中文。已有自訂名稱的實體會保留自訂名稱。
+
+**升級注意：** Add-on 離線時，服務狀態現在為 `gateway_unreachable`，方便直接判斷原因。原本以 `sensor.line_oa_session_status = unavailable` 判斷斷線的自動化，請改用此狀態或 `binary_sensor.line_oa_connected = off`。停用或卸載整合時，實體仍由 HA 標為 `unavailable`。
 
 - 每 **60 秒**更新一次（DataUpdateCoordinator）。Add-on 恢復後自動更新，離線期間錯誤日誌只記一次。
 - 發送遇到連線錯誤或 LINE Session 錯誤時，會向 Add-on 重新查詢狀態；其他發送失敗（例如 LINE 拒絕、別名不存在）**不會**改變登入狀態。

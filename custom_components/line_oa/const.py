@@ -53,14 +53,23 @@ CAMERA_IMAGE_TIMEOUT: Final = 15  # seconds
 # Home Assistant limits entity states to 255 characters.
 MAX_STATE_LENGTH: Final = 255
 
-# Gateway session states exposed by sensor.line_oa_session_status.
-SESSION_STATES: Final = [
+# States reported by the Gateway itself.
+LINE_SESSION_STATES: Final = [
     "ready",
     "auth_required",
     "expired",
     "disconnected",
     "error",
     "unknown",
+]
+
+# Combined HA -> Gateway -> LINE status; existing session state codes stay stable.
+SESSION_STATES: Final = [
+    *LINE_SESSION_STATES,
+    "gateway_unreachable",
+    "pairing_required",
+    "status_unavailable",
+    "instance_mismatch",
 ]
 
 LAST_ERROR_NONE: Final = "none"

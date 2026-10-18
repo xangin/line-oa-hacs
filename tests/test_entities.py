@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+from unittest.mock import AsyncMock, patch
 
 from aiohttp.test_utils import TestServer
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
+from custom_components.line_oa.api import GatewayConnectionError
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
@@ -40,6 +42,10 @@ async def test_healthy_gateway(hass: HomeAssistant, setup_integration: MockConfi
         "disconnected",
         "error",
         "unknown",
+        "gateway_unreachable",
+        "pairing_required",
+        "status_unavailable",
+        "instance_mismatch",
     ]
     assert hass.states.get(CONNECTED).attributes["device_class"] == "connectivity"
 
@@ -66,12 +72,13 @@ async def test_gateway_offline_and_recovery(
     gateway_state: MockGatewayState,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Offline: connected=off, others unavailable (no stale "ready"). Then recovers."""
+    """Offline: summary identifies the Add-on failure, then recovers without stale data."""
     gateway_state.health_status = 503
     caplog.set_level(logging.INFO)
     for _ in range(3):
         await _refresh(hass, setup_integration)
-    assert _states(hass) == ("off", "unavailable", "unavailable", "unavailable")
+    assert _states(hass) == ("off", "unavailable", "gateway_unreachable", "unavailable")
+    assert hass.states.get(SESSION).attributes["account_name"] is None
     # Repeated failures are logged once, not on every poll.
     failures = [r for r in caplog.records if "Error fetching line_oa data" in r.getMessage()]
     assert len(failures) == 1
@@ -90,7 +97,7 @@ async def test_gateway_process_gone(
     """Connection refused is reported as connected=off."""
     await gateway.close()
     await _refresh(hass, setup_integration)
-    assert _states(hass) == ("off", "unavailable", "unavailable", "unavailable")
+    assert _states(hass) == ("off", "unavailable", "gateway_unreachable", "unavailable")
 
 
 async def test_status_error_while_health_ok(
@@ -99,7 +106,7 @@ async def test_status_error_while_health_ok(
     """Gateway answers health but not status: online, but LINE state unknown."""
     gateway_state.status_override = (500, {"error": {"code": "INTERNAL", "message": "boom"}})
     await _refresh(hass, setup_integration)
-    assert _states(hass) == ("on", "unavailable", "unavailable", "unavailable")
+    assert _states(hass) == ("on", "unavailable", "status_unavailable", "unavailable")
 
 
 async def test_line_session_expired(
@@ -144,6 +151,50 @@ async def test_logged_in_missing_is_unavailable(
     gateway_state.line_logged_in = None
     await _refresh(hass, setup_integration)
     assert hass.states.get(LOGGED_IN).state == "unavailable"
+    assert hass.states.get(SESSION).state == "unknown"
+
+
+async def test_ready_without_valid_login_is_not_healthy(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, gateway_state: MockGatewayState
+) -> None:
+    gateway_state.line_logged_in = False
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("on", "off", "unknown", "none")
+
+
+async def test_failure_cause_changes_without_successful_poll(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, gateway_state: MockGatewayState
+) -> None:
+    """Consecutive failed polls must update both the summary and connectivity."""
+    gateway_state.health_status = 503
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("off", "unavailable", "gateway_unreachable", "unavailable")
+
+    gateway_state.health_status = 200
+    gateway_state.status_override = (500, {"error": {"code": "INTERNAL", "message": "boom"}})
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("on", "unavailable", "status_unavailable", "unavailable")
+
+    gateway_state.status_override = (401, {"error": {"code": "INVALID_API_KEY"}})
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("on", "unavailable", "pairing_required", "unavailable")
+
+    gateway_state.status_override = None
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("on", "on", "ready", "none")
+
+
+async def test_connection_lost_after_health_check(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """A connection failure fetching status must not leave connectivity on."""
+    with patch.object(
+        setup_integration.runtime_data.client,
+        "async_get_status",
+        AsyncMock(side_effect=GatewayConnectionError("Connection lost")),
+    ):
+        await _refresh(hass, setup_integration)
+    assert _states(hass) == ("off", "unavailable", "gateway_unreachable", "unavailable")
 
 
 @pytest.mark.parametrize(

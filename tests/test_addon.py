@@ -755,7 +755,7 @@ async def test_app_offline_keeps_credential_and_entry(hass: HomeAssistant, app: 
     await hass.async_block_till_done()
     assert hass.states.get("binary_sensor.line_oa_connected").state == "off"
     assert hass.states.get("binary_sensor.line_oa_logged_in").state == "unavailable"
-    assert hass.states.get("sensor.line_oa_session_status").state == "unavailable"
+    assert hass.states.get("sensor.line_oa_session_status").state == "gateway_unreachable"
     assert entry.data[CONF_API_KEY] == key
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
     assert hass.config_entries.flow.async_progress_by_handler(DOMAIN) == []
@@ -770,7 +770,7 @@ async def test_different_gateway_at_same_address_is_not_trusted(
     await entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
     assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
-    assert hass.states.get("sensor.line_oa_session_status").state == "unavailable"
+    assert hass.states.get("sensor.line_oa_session_status").state == "instance_mismatch"
 
 
 async def test_diagnostics_redact_credentials(hass: HomeAssistant, app: AppEnv) -> None:

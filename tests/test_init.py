@@ -86,7 +86,7 @@ async def test_restart_while_gateway_offline_still_creates_entities(
     assert config_entry.state is ConfigEntryState.LOADED
     assert hass.states.get("binary_sensor.line_oa_connected").state == "off"
     assert hass.states.get("binary_sensor.line_oa_logged_in").state == "unavailable"
-    assert hass.states.get("sensor.line_oa_session_status").state == "unavailable"
+    assert hass.states.get("sensor.line_oa_session_status").state == "gateway_unreachable"
     assert hass.states.get("sensor.line_oa_last_error").state == "unavailable"
 
 
@@ -98,6 +98,27 @@ async def test_integration_reload(hass: HomeAssistant, setup_integration: MockCo
     for entity_id in ENTITY_IDS:
         assert hass.states.get(entity_id).state != "unavailable"
     assert hass.services.has_service(DOMAIN, "send_text")
+
+
+async def test_custom_entity_name_and_id_survive_reload(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """New translations never replace a user's name, ID or unique ID."""
+    registry = er.async_get(hass)
+    original = registry.async_get("sensor.line_oa_session_status")
+    registry.async_update_entity(
+        original.entity_id,
+        name="我的 LINE 狀態",
+        new_entity_id="sensor.my_line_status",
+    )
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_reload(setup_integration.entry_id)
+    await hass.async_block_till_done()
+    updated = registry.async_get("sensor.my_line_status")
+    assert updated.unique_id == original.unique_id
+    assert updated.name == "我的 LINE 狀態"
+    assert hass.states.get(updated.entity_id).attributes["friendly_name"] == "我的 LINE 狀態"
+    assert registry.async_get("sensor.line_oa_session_status") is None
 
 
 async def test_integration_unload(
@@ -128,6 +149,7 @@ async def test_invalid_api_key_starts_reauth(
     await hass.async_block_till_done()
     flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert [flow["context"]["source"] for flow in flows] == ["reauth"]
+    assert hass.states.get("sensor.line_oa_session_status").state == "pairing_required"
     # Gateway itself answered the health check.
     assert hass.states.get("binary_sensor.line_oa_connected").state == "on"
     assert hass.states.get("binary_sensor.line_oa_logged_in").state == "unavailable"

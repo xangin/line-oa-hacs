@@ -94,22 +94,26 @@
   "entity": {
     "binary_sensor": {
       "connected": {
-        "name": "Gateway 連線狀態"
+        "name": "HA 與 Add-on 連線"
       },
       "logged_in": {
-        "name": "LINE 登入狀態"
+        "name": "LINE 帳號登入有效"
       }
     },
     "sensor": {
       "session_status": {
-        "name": "LINE Session 狀態",
+        "name": "服務狀態",
         "state": {
-          "ready": "就緒",
-          "auth_required": "需要登入",
-          "expired": "已過期",
-          "disconnected": "已斷線",
-          "error": "錯誤",
-          "unknown": "未知"
+          "ready": "連線與登入正常",
+          "auth_required": "LINE 尚未登入",
+          "expired": "LINE 登入已過期",
+          "disconnected": "LINE 暫時無法連線",
+          "error": "LINE 驗證或權限異常",
+          "unknown": "狀態尚未確認",
+          "gateway_unreachable": "Add-on 無法連線",
+          "pairing_required": "HA 需要重新配對",
+          "status_unavailable": "無法讀取 Add-on 狀態",
+          "instance_mismatch": "連到不同的 Add-on"
         },
         "state_attributes": {
           "account_name": {

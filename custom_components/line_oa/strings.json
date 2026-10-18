@@ -94,22 +94,26 @@
   "entity": {
     "binary_sensor": {
       "connected": {
-        "name": "Connected"
+        "name": "HA to add-on connection"
       },
       "logged_in": {
-        "name": "Logged in"
+        "name": "LINE account login valid"
       }
     },
     "sensor": {
       "session_status": {
-        "name": "Session status",
+        "name": "Service status",
         "state": {
-          "ready": "Ready",
-          "auth_required": "Authentication required",
-          "expired": "Expired",
-          "disconnected": "Disconnected",
-          "error": "Error",
-          "unknown": "Unknown"
+          "ready": "Connection and login normal",
+          "auth_required": "LINE not logged in",
+          "expired": "LINE login expired",
+          "disconnected": "LINE temporarily unreachable",
+          "error": "LINE verification or permission error",
+          "unknown": "Status not yet confirmed",
+          "gateway_unreachable": "Add-on unreachable",
+          "pairing_required": "HA pairing required",
+          "status_unavailable": "Cannot read add-on status",
+          "instance_mismatch": "Connected to a different add-on"
         },
         "state_attributes": {
           "account_name": {

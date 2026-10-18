@@ -15,6 +15,11 @@ class LineOAEntity(CoordinatorEntity[LineOACoordinator]):
 
     _attr_has_entity_name = True
 
+    @property
+    def suggested_object_id(self) -> str:
+        """Keep the original English ID suffix regardless of translated names."""
+        return self.entity_description.key
+
     def __init__(self, coordinator: LineOACoordinator, description: EntityDescription) -> None:
         """Initialize the entity."""
         super().__init__(coordinator)

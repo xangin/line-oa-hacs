@@ -58,18 +58,23 @@ class LineOAStatusSensor(LineOAEntity, SensorEntity):
 
 
 class LineOASessionStatusSensor(LineOAStatusSensor):
-    """LINE session state reported by the Gateway."""
+    """Combined status of HA pairing, Gateway connectivity and LINE login."""
+
+    @property
+    def available(self) -> bool:
+        """Keep connection failures readable while the integration is loaded."""
+        return True
 
     @property
     def native_value(self) -> str:
-        """Return the session state, mapping unexpected values to ``unknown``."""
-        value = (self.coordinator.data.session_status or "").lower()
-        return value if value in SESSION_STATES else "unknown"
+        """Return the current connection problem or verified LINE state."""
+        return self.coordinator.service_status
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the official account name, if reported."""
-        return {"account_name": self.coordinator.data.account_name}
+        data = self.coordinator.data if self.coordinator.last_update_success else None
+        return {"account_name": data.account_name if data else None}
 
 
 class LineOALastErrorSensor(LineOAStatusSensor):

@@ -140,10 +140,15 @@ async def test_traditional_chinese_ui_strings(hass: HomeAssistant) -> None:
 
     entities = await async_get_translations(hass, "zh-Hant", "entity", [DOMAIN])
     prefix = f"component.{DOMAIN}.entity"
-    assert entities[f"{prefix}.binary_sensor.connected.name"] == "Gateway 連線狀態"
-    assert entities[f"{prefix}.binary_sensor.logged_in.name"] == "LINE 登入狀態"
-    assert entities[f"{prefix}.sensor.session_status.name"] == "LINE Session 狀態"
+    assert entities[f"{prefix}.binary_sensor.connected.name"] == "HA 與 Add-on 連線"
+    assert entities[f"{prefix}.binary_sensor.logged_in.name"] == "LINE 帳號登入有效"
+    assert entities[f"{prefix}.sensor.session_status.name"] == "服務狀態"
     assert entities[f"{prefix}.sensor.last_error.name"] == "最近錯誤"
+    states = f"{prefix}.sensor.session_status.state"
+    assert entities[f"{states}.ready"] == "連線與登入正常"
+    assert entities[f"{states}.gateway_unreachable"] == "Add-on 無法連線"
+    assert entities[f"{states}.pairing_required"] == "HA 需要重新配對"
+    assert entities[f"{states}.expired"] == "LINE 登入已過期"
 
 
 async def test_entity_ids_stay_english_in_chinese_install(
@@ -160,5 +165,26 @@ async def test_entity_ids_stay_english_in_chinese_install(
     assert hass.states.get("sensor.line_oa_last_error") is not None
     assert (
         hass.states.get("binary_sensor.line_oa_connected").attributes["friendly_name"]
-        == "LINE OA Gateway 連線狀態"
+        == "LINE OA HA 與 Add-on 連線"
+    )
+    assert (
+        hass.states.get("sensor.line_oa_session_status").attributes["friendly_name"]
+        == "LINE OA 服務狀態"
+    )
+
+
+async def test_english_system_names_keep_original_english_ids(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    assert (
+        hass.states.get("binary_sensor.line_oa_connected").attributes["friendly_name"]
+        == "LINE OA HA to add-on connection"
+    )
+    assert (
+        hass.states.get("binary_sensor.line_oa_logged_in").attributes["friendly_name"]
+        == "LINE OA LINE account login valid"
+    )
+    assert (
+        hass.states.get("sensor.line_oa_session_status").attributes["friendly_name"]
+        == "LINE OA Service status"
     )
