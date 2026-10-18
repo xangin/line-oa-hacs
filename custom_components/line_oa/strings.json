@@ -109,7 +109,7 @@
           "expired": "LINE login expired",
           "disconnected": "LINE temporarily unreachable",
           "error": "LINE verification or permission error",
-          "unknown": "Status not yet confirmed",
+          "unknown": "Unknown",
           "gateway_unreachable": "Add-on unreachable",
           "pairing_required": "HA pairing required",
           "status_unavailable": "Cannot read add-on status",

@@ -109,7 +109,7 @@
           "expired": "LINE 登入已過期",
           "disconnected": "LINE 暫時無法連線",
           "error": "LINE 驗證或權限異常",
-          "unknown": "狀態尚未確認",
+          "unknown": "未知",
           "gateway_unreachable": "Add-on 無法連線",
           "pairing_required": "HA 需要重新配對",
           "status_unavailable": "無法讀取 Add-on 狀態",

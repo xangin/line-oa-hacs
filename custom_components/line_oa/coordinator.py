@@ -27,7 +27,8 @@ class LineOACoordinator(DataUpdateCoordinator[GatewayStatus]):
 
     ``gateway_reachable`` tracks ``GET /api/v1/health`` separately from the
     coordinator data so the "connected" sensor can show ``off`` while the
-    LINE session sensors become unavailable.
+    login and error sensors become unavailable. The service summary instead
+    identifies the failing connection layer.
     """
 
     config_entry: LineOAConfigEntry

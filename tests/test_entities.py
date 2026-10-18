@@ -197,6 +197,15 @@ async def test_connection_lost_after_health_check(
     assert _states(hass) == ("off", "unavailable", "gateway_unreachable", "unavailable")
 
 
+async def test_health_requires_authentication(
+    hass: HomeAssistant, setup_integration: MockConfigEntry, gateway_state: MockGatewayState
+) -> None:
+    """A protected health endpoint that rejects a key is reachable, needing reauth."""
+    gateway_state.health_status = 401
+    await _refresh(hass, setup_integration)
+    assert _states(hass) == ("on", "unavailable", "pairing_required", "unavailable")
+
+
 @pytest.mark.parametrize(
     ("last_error", "expected"),
     [
